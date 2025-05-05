@@ -30,11 +30,15 @@ public class Patient extends User {
     private Set<RendezVous> appointments = new HashSet<>();
 
     @Column(name = "blocked_by_medecin_ids")
+    
     private String blockedByMedecinIds;
 
     @OneToOne(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore // Prevent serialization
     private DossierMedical dossierMedical;
+
+    @OneToMany(mappedBy = "patient")  // One Patient can upload many documents
+    private Set<DocumentMedical> documents;
 
 
 }

@@ -1,6 +1,9 @@
 package iset.pfe.mediconnectback.entities;
 
+import java.time.LocalDateTime;
 import java.util.Date;
+
+import org.springframework.data.annotation.CreatedDate;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -30,13 +33,19 @@ public class DocumentMedical {
 
     private String fichier;
 
-    private Date dateAjout;
+    @CreatedDate
+    private LocalDateTime createdAt;
     
-    private String createdBy;
-
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dossier_medical_id")
     @JsonIgnore
     private DossierMedical dossierMedical;
+
+    @ManyToOne
+    @JoinColumn(name = "medecin_id", referencedColumnName = "id")
+    private Medecin medecin;   // Link to Medecin (if the document was uploaded by a doctor)
+
+    @ManyToOne
+    @JoinColumn(name = "patient_id", referencedColumnName = "id")
+    private Patient patient; // Link to Patient (if the document was uploaded by the patient)
 }

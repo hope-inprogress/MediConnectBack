@@ -19,9 +19,11 @@ public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
     List<RendezVous> findByPatientId(Long patientId);
 
     long countByRendezVousStatut(RendezVousStatut rendezVousStatut);
+
     List<RendezVous> findByMedecinAndRendezVousStatut(Medecin medecin, RendezVousStatut rendezVousStatut);
 
     boolean existsByMedecinAndAppointmentTime(Medecin medecin, LocalDateTime appointmentTime);
+
 
     @Query("SELECT DISTINCT rv.patient FROM RendezVous rv " +
            "LEFT JOIN FETCH rv.patient.dossierMedical dm " +

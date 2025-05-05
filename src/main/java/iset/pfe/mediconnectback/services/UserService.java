@@ -9,16 +9,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -50,6 +51,7 @@ import iset.pfe.mediconnectback.enums.TokenType;
 import iset.pfe.mediconnectback.enums.UserRole;
 import iset.pfe.mediconnectback.enums.UserStatus;
 import iset.pfe.mediconnectback.repositories.MotifsRepository;
+import iset.pfe.mediconnectback.repositories.PatientRepository;
 import iset.pfe.mediconnectback.repositories.TokenRepository;
 import iset.pfe.mediconnectback.repositories.UserRepository;
 import jakarta.transaction.Transactional;
@@ -68,6 +70,9 @@ public class UserService {
 	
 	@Autowired
 	private TokenRepository tokenRepository;
+
+    @Autowired
+    private PatientRepository patientRepository;
 
 	@Autowired
 	private AuthenticationManager authManager;
@@ -401,60 +406,28 @@ public class UserService {
         }
 
         String reason = request.get("reason");
+        String description = request.get("description") != null ? request.get("description") : "No description provided";
 
         // Log the deletion reason
         Motifs motif = new Motifs();
         motif.setEventType(EventType.USER_DELETED_HIS_ACCOUNT);
         motif.setEventTime(LocalDate.now());
         motif.setReason(reason);
-        motif.setUser(user);
+        motif.setTargetUser(user);
+        motif.setPerformedBy(user); // Assuming the user is performing the action
+        motif.setDescription(description);
         motifsRepo.save(motif);
         
         // Delete the user
         userRepo.delete(user);
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    public boolean isPatient(Long userId) {
+        User user = userRepo.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return user.getRole().equals(UserRole.Patient); // Adjust based on your enum or string
+    }
+    
 
 
 
@@ -483,14 +456,6 @@ public class UserService {
 		return userRepo.findAll();
 	}
 
-	/*public List<User> getAllMedecins() {
-		return userRepo.findByRole(UserRole.Medecin);
-	}
-
-	public List<User> getAllPatients() {
-		return userRepo.findByRole(UserRole.Patient);
-	}*/
-
 	public List<User> getAllUsersWithSpecialite() {
         return userRepo.findAll();
     }
@@ -509,46 +474,78 @@ public class UserService {
         }
     }
 
-	@Transactional
-    public void blockUser(Long userId, String reason) {
-        // Log the attempt to block
-       
-        User user = findById(userId);
-    
-        if (user.getUserStatus()== UserStatus.Blocked) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is already blocked");
+    // Method to block a user
+    @Transactional
+    public void blockUser(Long targetUserId, Long performedByUserId, String reason, String description) {
+        User targetUser = findById(targetUserId);
+        User performedBy = findById(performedByUserId);
+
+        // Case 1: Medecin blocking a Patient (soft block)
+        if (targetUser instanceof Patient patient && performedBy instanceof Medecin medecin) {
+            Set<String> blockedBy = new HashSet<>(
+                Optional.ofNullable(patient.getBlockedByMedecinIds())
+                        .map((String ids) -> java.util.Arrays.asList(ids.split(",")))
+                        .orElse(Collections.emptyList())
+            );
+
+            if (blockedBy.contains(medecin.getId().toString())) {
+                throw new RuntimeException("Patient already blocked by this medecin");
+            }
+
+            blockedBy.add(medecin.getId().toString());
+            patient.setBlockedByMedecinIds(String.join(",", blockedBy));
+            patientRepository.save(patient);
+
+            Motifs motif = new Motifs();
+            motif.setEventType(EventType.PATIENT_BLOCKED_BY_MEDECIN);
+            motif.setEventTime(LocalDate.now());
+            motif.setReason(reason);
+            motif.setDescription(description);
+            motif.setTargetUser(patient);
+            motif.setPerformedBy(medecin);
+            motifsRepo.save(motif);
+
+        } else {
+            // Case 2: Admin blocking a User (hard block)
+            if (targetUser.getUserStatus() == UserStatus.Blocked) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is already blocked");
+            }
+
+            targetUser.setUserStatus(UserStatus.Blocked);
+            userRepo.save(targetUser);
+
+            Motifs motif = new Motifs();
+            motif.setEventType(EventType.USER_BLOCKED_BY_ADMIN);
+            motif.setEventTime(LocalDate.now());
+            motif.setReason(reason);
+            motif.setDescription(description);
+            motif.setTargetUser(targetUser);
+            motif.setPerformedBy(performedBy);
+            motifsRepo.save(motif);
         }
-    
-        user.setUserStatus(UserStatus.Blocked);
+    }
+
+
+	public String rejectUser(Long targetUserId, Long adminId, String reason, String description) {
+        User user = userRepo.findById(targetUserId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        User admin = userRepo.findById(adminId)
+            .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        user.setUserStatus(UserStatus.Rejected);
         userRepo.save(user);
     
         Motifs motif = new Motifs();
-        motif.setEventType(EventType.USER_BLOCKED_BY_ADMIN);
-		motif.setEventTime(LocalDate.now());
+        motif.setEventType(EventType.USER_REJECTED_BY_ADMIN);
+        motif.setEventTime(LocalDate.now());
         motif.setReason(reason);
-        motif.setUser(user);
-                
+        motif.setDescription(description);
+        motif.setTargetUser(user);
+        motif.setPerformedBy(admin);
         motifsRepo.save(motif);
-    }
-
-	public String rejectUser(Long userId, String reason) {
-        Optional<User> userOptional = userRepo.findById(userId);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            user.setUserStatus(UserStatus.Rejected);
-            userRepo.save(user);
     
-            Motifs motif = new Motifs();
-            motif.setEventType(EventType.USER_REJECTED_BY_ADMIN);
-            motif.setEventTime(LocalDate.now());
-            motif.setReason(reason);
-            motif.setUser(user);
-            motifsRepo.save(motif);
-    
-            return "User rejected successfully";
-        } else {
-            return "User not found";
-        }
+        return "User rejected successfully";
     }
 	
 	@Transactional
@@ -568,15 +565,20 @@ public class UserService {
 
 
 	@Transactional
-    public void deleteUser(Long userId, String reason) {
-        User user = userRepo.findById(userId)
+    public void deleteUser(Long targetUserId, Long adminId, String reason, String description) {
+        User user = userRepo.findById(targetUserId)
             .orElseThrow(() -> new RuntimeException("User not found"));
+
+        User admin = userRepo.findById(adminId)
+        .orElseThrow(() -> new RuntimeException("Admin not found"));
 
         Motifs motif = new Motifs();
         motif.setEventType(EventType.USER_DELETED_BY_ADMIN);
         motif.setEventTime(LocalDate.now());
         motif.setReason(reason);
-        motif.setUser(user);
+        motif.setTargetUser(user);
+        motif.setPerformedBy(admin);
+        motif.setDescription(description);
 
         motifsRepo.save(motif);
         

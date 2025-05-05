@@ -52,4 +52,7 @@ public class Medecin extends User {
     @OneToMany(mappedBy = "medecin", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore // Prevent serialization
     private List<DossierMedical> dossiersMedicaux = new ArrayList<>();
+
+	@OneToMany(mappedBy = "patient")  // One Patient can upload many documents
+    private Set<DocumentMedical> documents;
 }

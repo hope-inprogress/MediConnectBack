@@ -1,18 +1,14 @@
 package iset.pfe.mediconnectback.controllers;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -39,7 +35,6 @@ public class UserController {
     private JwtService jwtService; // Inject JwtService
 
     // 🔍 GET current user profile
-    // 🔍 GET current user profile
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<?> getMe(@RequestHeader("Authorization") String tokenHeader) {
@@ -51,7 +46,6 @@ public class UserController {
         return ResponseEntity.ok(userResponse);
 
     }
-
 
     // 🔒 CHANGE password
     @PreAuthorize("isAuthenticated()")
@@ -110,7 +104,7 @@ public class UserController {
    
     // 🗑️ DELETE account
     @PreAuthorize("isAuthenticated()")
-    @DeleteMapping("me/deleteMe")
+    @DeleteMapping("/me")
     public ResponseEntity<Void> deleteMe(@RequestHeader("Authorization") String tokenHeader, @RequestBody Map<String, String> request) {
         String token = tokenHeader.replace("Bearer ", "");
 
@@ -118,118 +112,5 @@ public class UserController {
         userService.deleteMyAccount(id, request);
         return ResponseEntity.noContent().build();
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/all")
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> usersWithSpecialty = userService.getAllUsersWithSpecialite();
-        return ResponseEntity.ok(usersWithSpecialty);
-    }
-
-   @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/activate/{userId}")
-    public ResponseEntity<String> activateUser(@PathVariable Long userId) {
-        String response = userService.activateUser(userId);
-        return ResponseEntity.ok(response);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/block/{userId}")
-    public ResponseEntity<String> blockUser(@PathVariable Long userId, @RequestBody Map<String, String> request) {
-        try {
-            // Extract reason for blocking from request body
-            String reason = request.get("reason");
-
-            // Call the service method to block the user
-            userService.blockUser(userId, reason);
-
-            // Return a success response
-            return ResponseEntity.ok("User blocked successfully");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error blocking the user: " + e.getMessage());
-        }
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/rejetee/{userId}")
-    public ResponseEntity<String> rejeteeUser(@PathVariable Long userId, @RequestBody Map<String, String> request) {
-        String reason = request.get("reason");
-        String response = userService.rejectUser(userId, reason);
-        if (response.equals("User not found")) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        }
-        return ResponseEntity.ok(response);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    // Unblock user method
-    @PutMapping("/unblock/{userId}")
-    public ResponseEntity<String> unblockUser(@PathVariable Long userId) {
-        try {
-            // Call the service method to unblock the user
-            userService.unblockUser(userId);
-
-            // Return a success response
-            return ResponseEntity.ok("User unblocked successfully");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error unblocking the user: " + e.getMessage());
-        }
-    }
-
-  
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/delete/{userId}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long userId, @RequestBody String reason) {
-        userService.deleteUser(userId, reason);
-        return ResponseEntity.noContent().build();
-    }
-
-   @PreAuthorize("hasRole('ADMIN')")
-   @GetMapping("/total")
-   public Map<String, Long> getUserStats() {
-    Map<String, Long> stats = new HashMap<>();
-    
-    // Using the derived methods to get counts based on role and account status
-    stats.put("medecins", userService.countMedecins());
-    stats.put("patients", userService.countPatients());
-    stats.put("blocked", userService.countBlockedAccounts());
-    stats.put("active", userService.countActiveAccounts());
-    stats.put("pending", userService.countPendingAccounts());
-    stats.put("rejected", userService.countRejectedAccounts());
-    stats.put("total", userService.countTotalUsers());
-
-    
-    return stats;
-}
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/gender")
-    public Map<String, Long> getGenderStatistics() {
-        return userService.getGenderStatistics();
-    }
-   
 
 }

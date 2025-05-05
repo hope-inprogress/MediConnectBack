@@ -42,6 +42,11 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject); // subject = email
     }*/
 
+	public Long extractIdFromBearer(String bearerToken) {
+		return extractId(bearerToken.replace("Bearer ", ""));
+	}
+
+	
 	//extract Id from Token
 	public Long extractId(String token) {
 		return extractClaim(token, claims -> claims.get("id", Long.class));

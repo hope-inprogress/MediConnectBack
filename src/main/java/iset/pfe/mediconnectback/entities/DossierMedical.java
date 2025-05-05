@@ -39,6 +39,7 @@ public class DossierMedical {
     @JoinColumn(name = "patient_id")
     @JsonIgnore // Already added in previous fixes
     private Patient patient;
+    
     @Column(name = "created_at")
     private LocalDateTime dateCreated;
 
