@@ -15,6 +15,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import iset.pfe.mediconnectback.entities.User;
 
 @Service
 public class JwtService {
@@ -40,6 +41,11 @@ public class JwtService {
         String token = authHeader.substring(7);
         return extractClaim(token, Claims::getSubject); // subject = email
     }*/
+
+	//extract Id from Token
+	public Long extractId(String token) {
+		return extractClaim(token, claims -> claims.get("id", Long.class));
+	}	
 	
 	private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
 		final Claims claims = extractAllClaims(token);
@@ -87,6 +93,10 @@ public class JwtService {
 				.stream()
 				.map(GrantedAuthority::getAuthority)
 				.toList();
+		
+		// Assuming you are using a custom User class that has an `id` property
+		extraClaims.put("id", ((User) userDetails).getId());  // Add the user ID to the claims
+		
 		return Jwts
 				.builder()
 				.setClaims(extraClaims)

@@ -4,9 +4,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import iset.pfe.mediconnectback.entities.Medecin;
+import iset.pfe.mediconnectback.entities.Patient;
 import iset.pfe.mediconnectback.entities.RendezVous;
 import iset.pfe.mediconnectback.enums.RendezVousStatut;
 
@@ -20,4 +23,9 @@ public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
 
     boolean existsByMedecinAndAppointmentTime(Medecin medecin, LocalDateTime appointmentTime);
 
+    @Query("SELECT DISTINCT rv.patient FROM RendezVous rv " +
+           "LEFT JOIN FETCH rv.patient.dossierMedical dm " +
+           "LEFT JOIN FETCH dm.fichiers " +
+           "WHERE rv.medecin.id = :medecinId")
+    List<Patient> findDistinctPatientsByMedecinIdWithDossierMedical(@Param("medecinId") Long medecinId);
 }

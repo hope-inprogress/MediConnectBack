@@ -38,6 +38,8 @@ public class Motifs {
     @Column(name = "reason", length = 1000)
     private String reason;
 
+    private String Description;
+
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

@@ -7,15 +7,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-public class UserResponse {
-
-    private Long id;
+public class MedecinResponse {
+    
     private String firstName;
     private String lastName;
     private String email;
     private String address;
     private String imageUrl;
     private String accountStatus;
-    private String codeMedical; // Add this field for Medecins 
-    private Integer phoneNumber; // Add this field for Medecins
+    private String codeMedical;
+    private Integer phoneNumber;
+    
 }

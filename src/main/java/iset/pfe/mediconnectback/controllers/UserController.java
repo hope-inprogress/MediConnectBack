@@ -9,13 +9,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,10 +23,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import iset.pfe.mediconnectback.dtos.ChangerPassword;
 import iset.pfe.mediconnectback.dtos.UpdateUser;
-import iset.pfe.mediconnectback.dtos.UserResponse;
-import iset.pfe.mediconnectback.entities.Medecin;
 import iset.pfe.mediconnectback.entities.User;
-import iset.pfe.mediconnectback.services.AuthorizationService;
+import iset.pfe.mediconnectback.services.JwtService;
 import iset.pfe.mediconnectback.services.UserService;
 
 @RestController
@@ -38,58 +36,48 @@ public class UserController {
     private UserService userService;
 
     @Autowired
-    private AuthorizationService authorizationService; // Inject AuthorizationService
+    private JwtService jwtService; // Inject JwtService
 
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/all")
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> usersWithSpecialty = userService.getAllUsersWithSpecialite();
-        return ResponseEntity.ok(usersWithSpecialty);
-    }
+    // 🔍 GET current user profile
+    // 🔍 GET current user profile
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/me")
+    public ResponseEntity<?> getMe(@RequestHeader("Authorization") String tokenHeader) {
+        // Extract the ID from the Token
+        String token = tokenHeader.replace("Bearer ", "");
+        Long userId = jwtService.extractId(token);
 
-
-    @PreAuthorize("@authorizationService.isSelf(#id, authentication)")
-    @GetMapping("/me/{id}")
-    public ResponseEntity<UserResponse> getMe(@PathVariable Long id, Authentication authentication) {
-        // We assume the check has already been done in the AuthorizationService
-        User user = userService.findById(id);
-
-        String codeMedical = null;
-        if (user instanceof Medecin) {  // Check if user is a Medecin
-            Medecin medecin = (Medecin) user;  // Cast the user to Medecin
-            codeMedical = medecin.getCodeMedical();  // Retrieve the CodeMedical for Medecin
-        }
-
-        // Convert User to UserResponse, including CodeMedical for Medecin
-        UserResponse userResponse = new UserResponse(
-                user.getId(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getEmail(),
-                user.getAddress(),
-                user.getImageUrl(),
-                user.getAccountStatus().name(),
-                codeMedical,// Pass the CodeMedical value, null if not a Medecin
-                user.getPhoneNumber()// Pass the phone number
-        );
-
+        Object userResponse = userService.getMe(userId);
         return ResponseEntity.ok(userResponse);
+
     }
 
-    @PreAuthorize("@authorizationService.isSelf(#id, authentication)")
-    @PutMapping("/{id}/change-password")
-    public ResponseEntity<User> changePassword(@PathVariable Long id, @RequestBody ChangerPassword request) {
+
+    // 🔒 CHANGE password
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/me/password")
+    public ResponseEntity<User> changePassword(@RequestBody ChangerPassword request, @RequestHeader("Authorization") String tokenHeader) {
         
+        String token = tokenHeader.replace("Bearer ", "");
+
+        // Get extract the ID from the Token
+        Long id = jwtService.extractId(token);
         User user = userService.changePassword(id, request);
 
         return ResponseEntity.ok(user);
     }
 
-    @PreAuthorize("@authorizationService.isSelf(#id, authentication)")
-    @PutMapping("/{id}/data")
-    public ResponseEntity<?> updateUserData(@PathVariable Long id, @RequestBody UpdateUser request) {
+    // 📝 UPDATE user data
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/me/data")
+    public ResponseEntity<?> updateUserData(@RequestHeader("Authorization") String tokenHeader, @RequestBody UpdateUser request) {
         try {
-            User updated = userService.updateUserData(id, request);
+            String token = tokenHeader.replace("Bearer ", "");
+
+            Long id = jwtService.extractId(token);
+            // Call the service to update user data
+            userService.updateUserData(id, request);
+            var updated = getMe(tokenHeader).getBody();
             return ResponseEntity.ok(updated);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body("Erreur : " + e.getMessage());
@@ -98,12 +86,17 @@ public class UserController {
         }
     }
 
-    @PreAuthorize("@authorizationService.isSelf(#id, authentication)")
-    @PutMapping(value = "/{id}/photo", consumes = {"multipart/form-data"})
+    // 🖼️ UPDATE profile photo
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping(value = "/me/photo", consumes = {"multipart/form-data"})
     public ResponseEntity<?> updateUserPhoto(
-        @PathVariable Long id,
+
+        @RequestHeader("Authorization") String tokenHeader,
         @RequestPart(value = "imageUrl", required = false) MultipartFile photo) {
         try {
+            String token = tokenHeader.replace("Bearer ", "");
+
+            Long id = jwtService.extractId(token);
             User user = userService.updateUserPhoto(id, photo);
             return ResponseEntity.ok(user);
         } catch (IOException e) {
@@ -115,10 +108,13 @@ public class UserController {
         }
     }
    
-    @PreAuthorize("@authorizationService.isSelf(#id, authentication)")
-    @DeleteMapping("/deleteMe/{id}")
-    public ResponseEntity<Void> deleteMe(@PathVariable Long id, @RequestBody Map<String, String> request) {
-        String reason = request.get("reason");
+    // 🗑️ DELETE account
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("me/deleteMe")
+    public ResponseEntity<Void> deleteMe(@RequestHeader("Authorization") String tokenHeader, @RequestBody Map<String, String> request) {
+        String token = tokenHeader.replace("Bearer ", "");
+
+        Long id = jwtService.extractId(token);
         userService.deleteMyAccount(id, request);
         return ResponseEntity.noContent().build();
     }
@@ -126,6 +122,32 @@ public class UserController {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/all")
+    public ResponseEntity<List<User>> getAllUsers() {
+        List<User> usersWithSpecialty = userService.getAllUsersWithSpecialite();
+        return ResponseEntity.ok(usersWithSpecialty);
+    }
 
    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/activate/{userId}")

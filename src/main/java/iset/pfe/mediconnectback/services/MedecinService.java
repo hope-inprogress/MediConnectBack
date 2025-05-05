@@ -7,7 +7,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import iset.pfe.mediconnectback.entities.Medecin;
+import iset.pfe.mediconnectback.entities.Patient;
+import iset.pfe.mediconnectback.repositories.DossierMedicalRepository;
 import iset.pfe.mediconnectback.repositories.MedecinRepository;
+import iset.pfe.mediconnectback.repositories.MotifsRepository;
+import iset.pfe.mediconnectback.repositories.PatientRepository;
+import iset.pfe.mediconnectback.repositories.RendezVousRepository;
 
 @Service
 public class MedecinService {
@@ -15,6 +20,18 @@ public class MedecinService {
     @Autowired
     private MedecinRepository medecinRepository;
     
+    @Autowired
+    private RendezVousRepository rendezVousRepository;
+
+    @Autowired
+    private PatientRepository patientRepository;
+
+    @Autowired
+    private MotifsRepository motifsRepository;
+    @Autowired
+    private DossierMedicalRepository dossierMedicalRepository;
+
+    private String uploadDir;
     
     public List<Medecin> getAllMedecins() {
         return medecinRepository.findAll();
@@ -30,4 +47,15 @@ public class MedecinService {
         
         return monthlyCounts;
     }
+
+    public List<Patient> getPatientsByMedecin(Long medecinId) {
+        // Fetch the doctor
+       medecinRepository.findById(medecinId)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+
+        // Fetch patients with their DossierMedical and fichiers in a single query
+        return rendezVousRepository.findDistinctPatientsByMedecinIdWithDossierMedical(medecinId);
+    }
+
+    
 }

@@ -1,5 +1,7 @@
 package iset.pfe.mediconnectback.configuration;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Properties;
 
@@ -35,7 +37,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import iset.pfe.mediconnectback.exceptions.CustomAccessDeniedHandler;
 import iset.pfe.mediconnectback.exceptions.CustomAuthenticationEntryPoint;
-import iset.pfe.mediconnectback.services.AuthorizationService;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -106,17 +107,17 @@ public class SecurityConfig implements WebMvcConfigurer{
         return mailSender;
     }
     
-        @Bean
-    public AuthorizationService authorizationService() {
-        return new AuthorizationService();
+    @Override
+    public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/uploads/**") // URL pattern
+                .addResourceLocations("file:C:/Users/amela/Desktop/Stage PFE/MediConnectBack/uploads/"); // actual directory
     }
-    
-@Override
-public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
-    registry.addResourceHandler("/uploads/**") // URL pattern
-            .addResourceLocations("file:C:/Users/amela/Desktop/Stage PFE/MediConnectBack/uploads/"); // actual directory
-}
 
+    @Bean
+    public Path fileStorageLocation() {
+        // Provide the directory where files will be stored
+        return Paths.get("/path/to/your/storage/directory").toAbsolutePath().normalize();
+    }
 
     
     @Override
@@ -140,8 +141,6 @@ public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
-   
     
     @Bean
     AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception{
