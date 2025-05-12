@@ -33,22 +33,12 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
 	}
 
-    /*public String extractEmailFromRequest(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new RuntimeException("Missing or invalid Authorization header");
-        }
-        String token = authHeader.substring(7);
-        return extractClaim(token, Claims::getSubject); // subject = email
-    }*/
-
 	public Long extractIdFromBearer(String bearerToken) {
 		return extractId(bearerToken.replace("Bearer ", ""));
 	}
 
-	
 	//extract Id from Token
-	public Long extractId(String token) {
+	private Long extractId(String token) {
 		return extractClaim(token, claims -> claims.get("id", Long.class));
 	}	
 	

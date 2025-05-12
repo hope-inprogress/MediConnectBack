@@ -2,18 +2,14 @@ package iset.pfe.mediconnectback.entities;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import iset.pfe.mediconnectback.enums.RendezVousStatut;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Data
@@ -26,7 +22,7 @@ public class RendezVous {
     private Long id;
 
     @NotNull
-    private LocalDateTime appointmentTime;
+    private LocalTime appointmentTime;
 
     @NotNull
     private LocalDate appointmentDate;
@@ -37,11 +33,12 @@ public class RendezVous {
 
     @ManyToOne
     @JoinColumn(name = "patient_id", nullable = false)
+    @JsonIgnore
     private Patient patient;
 
     @ManyToOne
     @JoinColumn(name = "medecin_id", nullable = false)
-    @NotNull
+    @JsonIgnore
     private Medecin medecin;
 
     @Enumerated(EnumType.STRING)
@@ -54,6 +51,19 @@ public class RendezVous {
     private LocalDateTime cancelledAt; // Date d'annulation de la consultation
 
     private LocalDateTime completedAt; // Date de fin de la consultation
+
+    // Needed for RESCHEDULE_REQUESTED tracking
+    private LocalDateTime rescheduleRequestTime;
+
+    // Track how many times this appointment has been rescheduled
+    private int rescheduleCount;
+
+    // Computed field: date + time for scheduling logic
+    public LocalDateTime getAppointmentDateTime() {
+        return LocalDateTime.of(appointmentDate, appointmentTime);
+    }
+
+    private String errorMessage;    
 
 
 

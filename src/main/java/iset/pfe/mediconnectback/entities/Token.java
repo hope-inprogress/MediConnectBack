@@ -1,5 +1,7 @@
 package iset.pfe.mediconnectback.entities;
 
+import java.time.LocalDateTime;
+
 import iset.pfe.mediconnectback.enums.TokenType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,17 +25,21 @@ public class Token {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
-	private String token;
+
+	private String tokenName;
 		
+	private String token;
+
+	private LocalDateTime createdAt;
+
+	private LocalDateTime expiresAt;
+
 	private boolean expired;
 
 	private boolean revoked;
 
 	@Enumerated(EnumType.STRING)
-	private TokenType tokenType = TokenType.BEARER;
-	
-	
+	private TokenType tokenType = TokenType.BEARER;	
 	
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_id", nullable = false)

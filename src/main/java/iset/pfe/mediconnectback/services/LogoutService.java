@@ -6,6 +6,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.stereotype.Service;
 
+import iset.pfe.mediconnectback.entities.Token;
 import iset.pfe.mediconnectback.repositories.TokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,22 +24,37 @@ public class LogoutService implements LogoutHandler{
         Authentication authentication
         ) {
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
+        final String refreshHeader = request.getHeader("X-Refresh-Token");
 
-        if (authHeader == null ||!authHeader.startsWith("Bearer ")) {
+        if (authHeader == null ||!authHeader.startsWith("Bearer ") || refreshHeader == null ) {
             return;
         }
 
-        jwt = authHeader.substring(7);
-        var storedToken = tokenRepository.findByToken(jwt)
+        String access = authHeader.substring(7);
+ 
+        Token accessToken = tokenRepository.findByToken(access)
             .orElse(null);
 
-        if (storedToken != null) {
-            storedToken.setExpired(true);
-            storedToken.setRevoked(true);
-            tokenRepository.save(storedToken);
-            SecurityContextHolder.clearContext();
-            System.out.println("Logout successful!");
+        if (accessToken != null) {
+            accessToken.setExpired(true);
+            accessToken.setRevoked(true);
+            tokenRepository.save(accessToken);
+            System.out.println("Access token revoked: " + accessToken.getToken());
         }
+
+        Token refreshToken = tokenRepository.findByToken(refreshHeader)
+        .orElse(null);
+
+        if (refreshToken != null) {
+            refreshToken.setExpired(true);
+            refreshToken.setRevoked(true);
+            tokenRepository.save(refreshToken);
+            System.out.println("Refresh token revoked: " + refreshToken.getToken());
+        }
+        
+
+        SecurityContextHolder.clearContext();
+        System.out.println("Logout successful!");
+        
     }
 }

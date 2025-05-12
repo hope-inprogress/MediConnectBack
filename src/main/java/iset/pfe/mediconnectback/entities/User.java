@@ -86,7 +86,7 @@ public class User implements UserDetails, Principal{
     @Column(insertable = false)
     private LocalDateTime updatedDate;
    
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
 	@JsonIgnore
     private List<Token> tokens;
 

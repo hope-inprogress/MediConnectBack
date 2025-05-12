@@ -1,6 +1,5 @@
 package iset.pfe.mediconnectback.controllers;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,10 +12,9 @@ import org.springframework.web.bind.annotation.*;
 import iset.pfe.mediconnectback.entities.User;
 import iset.pfe.mediconnectback.services.JwtService;
 import iset.pfe.mediconnectback.services.UserService;
-import iset.pfe.mediconnectback.services.MedecinService;
 
 @RestController
-@RequestMapping("/admin")
+@RequestMapping("/api/admin")
 @CrossOrigin(origins = "http://localhost:5173")
 public class AdminController {
 
@@ -26,8 +24,6 @@ public class AdminController {
     @Autowired
     private JwtService jwtService; // Inject JwtService
 
-    @Autowired
-    private MedecinService medecinService;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/users")
@@ -45,11 +41,11 @@ public class AdminController {
     
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/{userId}/reject")
-    public ResponseEntity<String> rejeteeUser(@PathVariable Long userId, @RequestBody Map<String, String> request) {
+    public ResponseEntity<String> rejeteeUser(@PathVariable Long userId, @RequestBody Map<String, String> request, @RequestHeader("Authorization") String token) {
         
         String reason = request.get("reason");
         String description = request.get("description");
-        Long adminId = jwtService.extractId(request.get("token").replace("Bearer ", ""));
+        Long adminId = jwtService.extractIdFromBearer(token);
 
         String response = userService.rejectUser(userId, adminId, reason, description);
         if (response.equals("User not found")) {
@@ -60,11 +56,15 @@ public class AdminController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/{userId}/block")
-    public ResponseEntity<String> adminBlockUser(@PathVariable Long userId, @RequestBody Map<String, String> request) {
+    public ResponseEntity<String> adminBlockUser(
+        @PathVariable Long userId, 
+        @RequestBody Map<String, String> request,
+        @RequestHeader("Authorization") String token
+    ) {
         try {
             String reason = request.get("reason");
             String description = request.get("description");
-            Long adminId = jwtService.extractId(request.get("token").replace("Bearer ", ""));
+            Long adminId = jwtService.extractIdFromBearer(token);
 
             userService.blockUser(userId, adminId, reason, description);
             return ResponseEntity.ok("User blocked by admin successfully");
@@ -88,47 +88,16 @@ public class AdminController {
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+   /* @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long userId, @RequestBody Map<String, String> request) {
+    public ResponseEntity<String> deleteUser(@PathVariable Long userId, @RequestBody Map<String, String> request, @RequestHeader("Authorization") String token) {
 
         String reason = request.get("reason");
         String description = request.get("description");
-        Long adminId = jwtService.extractId(request.get("token").replace("Bearer ", ""));
+        Long adminId = jwtService.extractIdFromBearer(token);
 
         userService.deleteUser(userId, adminId, reason, description);
-        return ResponseEntity.noContent().build();
-    }
-
-   @PreAuthorize("hasRole('ADMIN')")
-   @GetMapping("/users/statistics")
-   public Map<String, Long> getUserStats() {
-        Map<String, Long> stats = new HashMap<>();
-        
-        // Using the derived methods to get counts based on role and account status
-        stats.put("medecins", userService.countMedecins());
-        stats.put("patients", userService.countPatients());
-        stats.put("blocked", userService.countBlockedAccounts());
-        stats.put("active", userService.countActiveAccounts());
-        stats.put("pending", userService.countPendingAccounts());
-        stats.put("rejected", userService.countRejectedAccounts());
-        stats.put("total", userService.countTotalUsers());
-
-        return stats;
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/users/statistics/gender")
-    public Map<String, Long> getGenderStatistics() {
-        return userService.getGenderStatistics();
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/medecins/monthly-stats")
-      public ResponseEntity<List<Integer>> getMonthlyPatientStats() {
-         List<Integer> monthlyStats = medecinService.getMedecinsByMonth();
-         return ResponseEntity.ok(monthlyStats);
-    }
-    
+        return ResponseEntity.ok("User deleted successfully");
+    }*/
 
 }

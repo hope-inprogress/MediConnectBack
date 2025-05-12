@@ -41,9 +41,10 @@ public class Motifs {
     @Column(columnDefinition = "TEXT")
     private String Description;
 
-    // The user who is the subject of this motif (e.g., the one being blocked)
+    // The user who is the subject of this motif (e.g., the one being blocked), get only the id of the user
+
     @ManyToOne
-    @JoinColumn(name = "patient_id")
+    @JoinColumn(name = "userId")
     private User targetUser;
 
     // The user who performed the action (optional — could be null for automatic events)

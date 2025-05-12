@@ -2,6 +2,9 @@ package iset.pfe.mediconnectback.services;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 //import java.util.Optional;
 //import java.util.UUID;
@@ -14,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import iset.pfe.mediconnectback.dtos.MailBody;
+import iset.pfe.mediconnectback.dtos.ResetPasswordBody;
 import iset.pfe.mediconnectback.entities.OTP;
 
 import iset.pfe.mediconnectback.entities.User;
@@ -73,11 +77,36 @@ public class AuthService {
 		return userRepo.save(user);
 	}
 	
-	public void resetPassword(String email, String RawPassword) {
-		Optional<User> user = userRepo.findUserByEmail(email);
-		String newPassword = hashPassword(RawPassword);
-		user.get().setPassword(newPassword);
-		userRepo.save(user.get());
+	public Map<String, String> resetPassword(ResetPasswordBody request) {
+
+		Map<String, String> response = new HashMap<>();
+		
+		User user = userRepo.findUserByEmail(request.getEmail())
+		    .orElseThrow(() -> new UsernameNotFoundException("An account with this email does not exist!"));
+		
+		OTP fp = findByOtpAndUser(request.getOtp(), user);
+
+		if (fp == null) {
+			response.put("message", "OTP does not exist!");
+			return response;
+		}
+
+		if (fp.getExpiresAt().isBefore(LocalDateTime.now())) {
+			deleteFp(fp.getId());
+			response.put("message", "OTP has expired");
+			return response;
+		}
+		String rawPassword = request.getNewPassword();
+		if (!Objects.equals(rawPassword, request.getRepeatNewPassword())) {
+			response.put("message", "Password does not match!");
+			return response;
+		}		
+
+		String newPassword = hashPassword(rawPassword);
+		user.setPassword(newPassword);
+		userRepo.save(user);
+		response.put("message", "Password updated successfully!");
+		return response;
 	}
 
 	public void sendValidationEmail(User user) {

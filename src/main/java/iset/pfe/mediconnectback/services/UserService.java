@@ -50,6 +50,7 @@ import iset.pfe.mediconnectback.enums.Sexe;
 import iset.pfe.mediconnectback.enums.TokenType;
 import iset.pfe.mediconnectback.enums.UserRole;
 import iset.pfe.mediconnectback.enums.UserStatus;
+import iset.pfe.mediconnectback.repositories.DossierMedicalRepository;
 import iset.pfe.mediconnectback.repositories.MotifsRepository;
 import iset.pfe.mediconnectback.repositories.PatientRepository;
 import iset.pfe.mediconnectback.repositories.TokenRepository;
@@ -80,6 +81,9 @@ public class UserService {
 	@Autowired
 	private MotifsRepository motifsRepo;
 
+    @Autowired
+    private DossierMedicalRepository dossierMedicalRepo;
+
 	@Autowired
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -98,16 +102,35 @@ public class UserService {
             )
         );
 		
-		var user = userRepo.findUserByEmail(request.getEmail())
+		User user = userRepo.findUserByEmail(request.getEmail())
 			.orElseThrow(() -> new UsernameNotFoundException("User not found: " + request.getEmail()));
 		
-		var jwtToken = jwtService.generateToken(user);
-		var refreshToken = jwtService.generateRefreshToken(user);
-		revokeAllUserTokens(user);
-		saveUserToken(user, jwtToken);
+       /*      // Check if the account is deleted
+        if (user.getUserStatus()== UserStatus.Deleted) {
+            throw new RuntimeException("Your account has been deleted");
+        }*/
+
+        // Check user status
+        if (user.getUserStatus()== UserStatus.Undecided) {
+            throw new RuntimeException("Your account is not yet activated. Please wait for admin approval");
+        }
+
+        if (user.getUserStatus() == UserStatus.Blocked) {
+            throw new RuntimeException("Your account has been blocked. Please contact support");
+        }
+
+        if (user.getUserStatus() == UserStatus.Rejected) {
+            throw new RuntimeException("Your account has been rejected. Please contact support");
+        }
+
+		String accessToken = jwtService.generateToken(user);
+		String refreshToken = jwtService.generateRefreshToken(user);
+
+		saveAccessToken(user, accessToken);
+        saveRefreshToken(user, refreshToken);
 
 		AuthResponse authResponse = new AuthResponse();
-		authResponse.setAccessToken(jwtToken);
+		authResponse.setAccessToken(accessToken);
 		authResponse.setRefreshToken(refreshToken);
 		authResponse.setRole(user.getRole().name());
 		authResponse.setMessage("User authenticated successfully");
@@ -115,26 +138,42 @@ public class UserService {
 		return authResponse;
 	}
 
-	private void saveUserToken(User user, String jwtToken) {
+	private void saveAccessToken(User user, String jwtToken) {
 		Token token = new Token();
 		token.setUser(user);
-		token.setToken(jwtToken);
+		token.setTokenName("accessToken");
 		token.setTokenType(TokenType.BEARER);
+        token.setToken(jwtToken);
+        token.setExpiresAt(LocalDateTime.now().plusMinutes(15)); // Set expiration date for access token
+        token.setCreatedAt(LocalDateTime.now());
 		token.setExpired(false);
 		token.setRevoked(false);
-		
 		tokenRepository.save(token);
 	}
 
-	public void revokeAllUserTokens(User user) {
-		List<Token> validUserTokens = tokenRepository.findAllValidTokenByUser(user.getId());
-		if (validUserTokens.isEmpty())
-		  return;
-		validUserTokens.forEach(token -> {
-		  token.setExpired(true);
-		  token.setRevoked(true);
-		});
-		tokenRepository.saveAll(validUserTokens);
+    private void saveRefreshToken(User user, String jwtToken) {
+		Token token = new Token();
+		token.setUser(user);
+		token.setTokenName("refreshToken");
+		token.setTokenType(TokenType.BEARER);
+        token.setToken(jwtToken);
+        token.setExpiresAt(LocalDateTime.now().plusDays(30)); // Set expiration date for refresh token
+        token.setCreatedAt(LocalDateTime.now());
+		token.setExpired(false);
+		token.setRevoked(false);
+		tokenRepository.save(token);
+	}
+
+	public void revokeToken(String token) {
+		Optional<Token> validUserToken = tokenRepository.findByToken(token);
+
+        if (validUserToken.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Token not found");
+        }
+        Token tokenToRevoke = validUserToken.get();
+        tokenToRevoke.setExpired(true);
+        tokenToRevoke.setRevoked(true);
+        tokenRepository.save(tokenToRevoke);
 	}
 
 
@@ -146,31 +185,30 @@ public class UserService {
         }
 
         String email = jwtService.extractUserName(refreshToken);
+
         User user = userRepo.findUserByEmail(email)
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
-        var userDetails = new org.springframework.security.core.userdetails.User(
-                user.getEmail(), 
-                user.getPassword(), 
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
-        );
-        if (!jwtService.isTokenValid(refreshToken, userDetails)) {
+        if (!jwtService.isTokenValid(refreshToken, user)) {
             throw new IllegalArgumentException("Invalid refresh token");
         }
 
-        String newAccessToken = jwtService.generateToken(userDetails);
-        revokeAllUserTokens(user); // Revoke old access tokens
-        saveUserToken(user, newAccessToken);
+        String newAccessToken = jwtService.generateToken(user);
+        String newRefreshToken = jwtService.generateRefreshToken(user);
+
+        saveAccessToken(user, newAccessToken);
+        saveRefreshToken(user, newRefreshToken); // Save new refresh token
+
+        revokeToken(refreshToken); // Revoke old access tokens
 
         AuthResponse authResponse = new AuthResponse();
         authResponse.setAccessToken(newAccessToken);
-        authResponse.setRefreshToken(refreshToken); // Reuse existing refresh token
+        authResponse.setRefreshToken(newRefreshToken); // Reuse existing refresh token
         authResponse.setRole(user.getRole().name());
         authResponse.setMessage("Token refreshed successfully");
 
         return authResponse;
     }
-
 
 	public User registerUser(SignupRequest request) {
 	    // Check if email is already in use
@@ -214,6 +252,8 @@ public class UserService {
 	    user.setAccountStatus(AccountStatus.NotVerified);
 	    user.setRole("Medecin".equalsIgnoreCase(role) ? UserRole.Medecin : UserRole.Patient);
 	    user.setCreatedDate(LocalDateTime.now());
+        user.setUpdatedDate(LocalDateTime.now());
+        user.setImageUrl("/uploads/DefaultImage/Defaultimage.jpeg");
 
 	    try {
 	        // Save the user to the database
@@ -456,8 +496,9 @@ public class UserService {
 		return userRepo.findAll();
 	}
 
+    //getAll Users except Admins
 	public List<User> getAllUsersWithSpecialite() {
-        return userRepo.findAll();
+        return userRepo.findAllByRoleNot(UserRole.Admin);
     }
 
 	@Transactional
@@ -563,32 +604,43 @@ public class UserService {
 		userRepo.save(user);
 	}
 
-
-	@Transactional
+    /*@Transactional
     public void deleteUser(Long targetUserId, Long adminId, String reason, String description) {
         User user = userRepo.findById(targetUserId)
             .orElseThrow(() -> new RuntimeException("User not found"));
-
+    
         User admin = userRepo.findById(adminId)
-        .orElseThrow(() -> new RuntimeException("Admin not found"));
-
+            .orElseThrow(() -> new RuntimeException("Admin not found"));
+    
+        // Create the motif BEFORE modifying user
         Motifs motif = new Motifs();
         motif.setEventType(EventType.USER_DELETED_BY_ADMIN);
         motif.setEventTime(LocalDate.now());
         motif.setReason(reason);
-        motif.setTargetUser(user);
-        motif.setPerformedBy(admin);
         motif.setDescription(description);
-
-        motifsRepo.save(motif);
-        
-        // Delete the user
+        motif.setTargetUser(user);     // ✅ Managed entity
+        motif.setPerformedBy(admin);   // ✅ Managed entity
+    
+        motifsRepo.save(motif); // Save while both user/admin are still in DB
+    
+        // Clean up user associations
+        user.getTokens().clear();
+        if (user instanceof Patient patient) {
+            patient.getAppointments().clear();
+            patient.getDocumentsMedicaux().clear();
+            if (patient.getDossierMedical() != null) {
+                dossierMedicalRepo.delete(patient.getDossierMedical());
+            }
+        } else if (user instanceof Medecin medecin) {
+            medecin.getAppointments().clear();
+            medecin.getDocumentsMedicaux().clear();
+            if (medecin.getDossiersMedicaux() != null) {
+                medecin.getDossiersMedicaux().forEach(dossier -> dossier.setMedecin(null));
+            }
+        }
+    
         userRepo.delete(user);
-    }
-
-
-
-
+    }*/
 
 	public Long countMedecins() {
         return userRepo.countByRole(UserRole.Medecin);

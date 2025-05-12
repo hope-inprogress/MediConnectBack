@@ -7,6 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -66,5 +67,12 @@ public class GlobalExceptionHandler {
         errorBody.put("message", message);
         errorBody.put("path", path);
         return new ResponseEntity<>(errorBody, status);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<String> handleMaxSizeException(MaxUploadSizeExceededException ex) {
+      return ResponseEntity
+        .status(HttpStatus.PAYLOAD_TOO_LARGE)
+        .body("Fichier trop volumineux (max 5 MB).");
     }
 }

@@ -24,7 +24,7 @@ import iset.pfe.mediconnectback.services.JwtService;
 import iset.pfe.mediconnectback.services.UserService;
 
 @RestController
-@RequestMapping("/users")
+@RequestMapping("api/users")
 @CrossOrigin(origins = "http://localhost:5173")
 public class UserController {
     
@@ -39,8 +39,7 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<?> getMe(@RequestHeader("Authorization") String tokenHeader) {
         // Extract the ID from the Token
-        String token = tokenHeader.replace("Bearer ", "");
-        Long userId = jwtService.extractId(token);
+        Long userId = jwtService.extractIdFromBearer(tokenHeader);
 
         Object userResponse = userService.getMe(userId);
         return ResponseEntity.ok(userResponse);
@@ -49,13 +48,11 @@ public class UserController {
 
     // 🔒 CHANGE password
     @PreAuthorize("isAuthenticated()")
-    @PutMapping("/me/password")
+    @PutMapping("/me/change-password")
     public ResponseEntity<User> changePassword(@RequestBody ChangerPassword request, @RequestHeader("Authorization") String tokenHeader) {
         
-        String token = tokenHeader.replace("Bearer ", "");
-
         // Get extract the ID from the Token
-        Long id = jwtService.extractId(token);
+        Long id = jwtService.extractIdFromBearer(tokenHeader);
         User user = userService.changePassword(id, request);
 
         return ResponseEntity.ok(user);
@@ -63,12 +60,11 @@ public class UserController {
 
     // 📝 UPDATE user data
     @PreAuthorize("isAuthenticated()")
-    @PutMapping("/me/data")
+    @PutMapping("/me/update-data")
     public ResponseEntity<?> updateUserData(@RequestHeader("Authorization") String tokenHeader, @RequestBody UpdateUser request) {
         try {
-            String token = tokenHeader.replace("Bearer ", "");
 
-            Long id = jwtService.extractId(token);
+            Long id = jwtService.extractIdFromBearer(tokenHeader);
             // Call the service to update user data
             userService.updateUserData(id, request);
             var updated = getMe(tokenHeader).getBody();
@@ -82,15 +78,14 @@ public class UserController {
 
     // 🖼️ UPDATE profile photo
     @PreAuthorize("isAuthenticated()")
-    @PutMapping(value = "/me/photo", consumes = {"multipart/form-data"})
+    @PutMapping(value = "/me/update-photo", consumes = {"multipart/form-data"})
     public ResponseEntity<?> updateUserPhoto(
 
         @RequestHeader("Authorization") String tokenHeader,
         @RequestPart(value = "imageUrl", required = false) MultipartFile photo) {
         try {
-            String token = tokenHeader.replace("Bearer ", "");
+            Long id = jwtService.extractIdFromBearer(tokenHeader);
 
-            Long id = jwtService.extractId(token);
             User user = userService.updateUserPhoto(id, photo);
             return ResponseEntity.ok(user);
         } catch (IOException e) {
@@ -106,9 +101,9 @@ public class UserController {
     @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteMe(@RequestHeader("Authorization") String tokenHeader, @RequestBody Map<String, String> request) {
-        String token = tokenHeader.replace("Bearer ", "");
+        
+        Long id = jwtService.extractIdFromBearer(tokenHeader);
 
-        Long id = jwtService.extractId(token);
         userService.deleteMyAccount(id, request);
         return ResponseEntity.noContent().build();
     }

@@ -11,11 +11,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import iset.pfe.mediconnectback.entities.Motifs;
+import iset.pfe.mediconnectback.dtos.MotifDto;
 import iset.pfe.mediconnectback.services.MotifsService;
 
 @RestController
-@RequestMapping("/motifs")
+@RequestMapping("/api/motifs")
 @CrossOrigin(origins = "http://localhost:5173")
 public class MotifsController {
     
@@ -24,7 +24,7 @@ public class MotifsController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{userId}")
-    public List<Motifs> getMotifsByUserId(@PathVariable Long userId) {
+    public List<MotifDto> getMotifsByUserId(@PathVariable Long userId) {
         return motifsService.getMotifsDetailsByUserId(userId);
     }
 

@@ -95,8 +95,8 @@ public class SecurityConfig implements WebMvcConfigurer{
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost("smtp.gmail.com");
         mailSender.setPort(587);
-        mailSender.setUsername("amelarfaoui050@gmail.com");
-        mailSender.setPassword("talz zuno hnsq kkgz");
+        mailSender.setUsername("mediconnect189@gmail.com");
+        mailSender.setPassword("ocfm daxu gcck vaci");
 
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");

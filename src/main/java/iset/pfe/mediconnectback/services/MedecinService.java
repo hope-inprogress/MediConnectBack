@@ -1,6 +1,7 @@
 package iset.pfe.mediconnectback.services;
 
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,11 +9,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import iset.pfe.mediconnectback.entities.DocumentMedical;
+import iset.pfe.mediconnectback.entities.DossierMedical;
 import iset.pfe.mediconnectback.entities.Medecin;
 import iset.pfe.mediconnectback.entities.Note;
 import iset.pfe.mediconnectback.entities.Patient;
 import iset.pfe.mediconnectback.entities.RendezVous;
 import iset.pfe.mediconnectback.repositories.DocumentMedicalRepository;
+import iset.pfe.mediconnectback.repositories.DossierMedicalRepository;
 import iset.pfe.mediconnectback.repositories.MedecinRepository;
 import iset.pfe.mediconnectback.repositories.NoteRepository;
 import iset.pfe.mediconnectback.repositories.RendezVousRepository;
@@ -28,6 +31,9 @@ public class MedecinService {
 
     @Autowired
     private DocumentMedicalRepository documentMedicalRepository;
+
+    @Autowired
+    private DossierMedicalRepository dossierMedicalRepository;
 
     @Autowired
     private NoteRepository noteRepository;
@@ -68,21 +74,10 @@ public class MedecinService {
 
 
     // Retrieve all DossierMedical records that belong to patients linked with this medecin
-    /*public List<DossierMedical> getDossierMedical(Long medecinId) {
+    public List<DossierMedical> getDossierMedical(Long medecinId) {
         return dossierMedicalRepository.findByMedecinId(medecinId);
-    } */
+    }
 
-       /*  // Add a document to a dossier By medecin(visible to all, editable only by uploader)
-        public void addDocumentToDossier(Long dossierId, DocumentMedical doc, Long medecinId) {
-            DossierMedical dossier = dossierMedicalRepository.findById(dossierId)
-                    .orElseThrow(() -> new RuntimeException("Dossier not found"));
-            Medecin medecin = getMedecinById(medecinId);
-            doc.setDossierMedical(dossier);
-            doc.setMedecin(medecin);
-            doc.setPatient(null);
-            doc.setCreatedAt(LocalDateTime.now());
-            documentMedicalRepository.save(doc);
-        }*/
 
     // Retrieve all documents in a dossier, including the ones added by other medecins
     public List<DocumentMedical> getDocumentsByDossier(Long dossierId) {
@@ -111,6 +106,25 @@ public class MedecinService {
     public List<Note> getPrivateNotes(Long medecinId) {
         return noteRepository.findByMedecinId(medecinId);
     }
+
+    // Delete a private note (only the medecin who created it can delete it)
+    public void deletePrivateNote(Long medecinId, Long noteId) {
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new RuntimeException("Note not found"));
+
+        // Ensure the medecinId matches the medecin who created the note
+        if (!note.getMedecin().getId().equals(medecinId)) {
+            throw new RuntimeException("Not authorized to delete this note");
+        }
+
+        noteRepository.delete(note);
+    }
+
+    public void updateAppointmentStatus(Long appointmentId, String status, Long medecinId) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'updateAppointmentStatus'");
+    }
+
 
     // Get all appointments along with their statuses (completed, cancelled, no-show, etc.)
    /*  public List<RendezVous> getAllRendezVousWithStatus(Long medecinId) {

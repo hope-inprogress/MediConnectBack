@@ -40,18 +40,6 @@ public class JwtFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-
-        // Handle OPTIONS requests (preflight)
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            response.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-            response.setHeader("Access-Control-Allow-Credentials", "true");
-            response.setHeader("Access-Control-Max-Age", "3600");
-            response.setStatus(HttpServletResponse.SC_OK);
-            return;
-        }
-
         String path = request.getRequestURI();
 
         if (path.startsWith("/auth/") || path.startsWith("/uploads/")) {

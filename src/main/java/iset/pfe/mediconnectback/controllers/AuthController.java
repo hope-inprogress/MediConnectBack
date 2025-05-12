@@ -24,7 +24,6 @@ import iset.pfe.mediconnectback.dtos.MailBody;
 import iset.pfe.mediconnectback.dtos.RefreshRequest;
 import iset.pfe.mediconnectback.dtos.ResetPasswordBody;
 import iset.pfe.mediconnectback.dtos.SignupRequest;
-import iset.pfe.mediconnectback.entities.Admin;
 import iset.pfe.mediconnectback.entities.OTP;
 import iset.pfe.mediconnectback.entities.User;
 import iset.pfe.mediconnectback.services.AdminService;
@@ -47,10 +46,6 @@ public class AuthController {
 	
 	@Autowired 
 	private AuthService authService;
-	
-	@Autowired
-	private AdminService adminService;
-
 
 	@Autowired
 	private UserDetailsServiceImpl userDetailsService;
@@ -81,7 +76,7 @@ public class AuthController {
 	}
 
 
-	@PostMapping("login")
+	@PostMapping("/login")
 	public ResponseEntity<AuthResponse> authenticate(
 		@RequestBody LoginRequest request,
 		HttpServletRequest httpRequest
@@ -107,14 +102,11 @@ public class AuthController {
 
 	    return ResponseEntity.ok(userService.authenticateUser(request));
 	}
-
-
-
 	
 	//send mail for email verification(forgot password)
-	@PostMapping("/verifyMail/{email}")
-	public ResponseEntity<String> verifyEmail(@PathVariable String email) {
-
+	@PostMapping("/forgot-password")
+	public ResponseEntity<String> verifyEmail(@RequestBody Map<String, String> request) {
+		String email = request.get("email");
 	    User user = userService.findByEmail(email)
         .orElseThrow(() -> new UsernameNotFoundException("An account with this email does not exist!"));
 	    
@@ -132,8 +124,9 @@ public class AuthController {
     	return new ResponseEntity<>("EmailSent for verification!", HttpStatus.OK);
 	}
 	
-	@PostMapping("/resendMail/{email}")
-	public ResponseEntity<String> resendEmail(@PathVariable String email) {
+	@PostMapping("/forgot-password/resend")
+	public ResponseEntity<String> resendEmail(@RequestBody Map<String, String> request) {
+		String email = request.get("email");
 		User user = userService.findByEmail(email)
 	            .orElseThrow(() -> new UsernameNotFoundException("An account with this email does not exist!"));
 		
@@ -154,9 +147,12 @@ public class AuthController {
 	}
 	
 	//verify if OneTime password input is valid for that email
-	@PostMapping("/verifyOtp/{otp}/{email}")
-	public ResponseEntity<Map<String, String>> verifyOtp(@PathVariable String otp, @PathVariable String email) {
+	@PostMapping("/verify-otp")
+	public ResponseEntity<Map<String, String>> verifyOtp(@RequestBody Map<String, String> request) {
+			    String email = request.get("email");
+	    String otp = request.get("otp");
 		Map<String, String> response = new HashMap<>();
+
 	    User user = userService.findByEmail(email)
 	    		.orElseThrow(() -> new UsernameNotFoundException("An account with this email does not exist!"));
 	
@@ -174,58 +170,38 @@ public class AuthController {
 	        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(response);
 	}
 	
-	@PutMapping("/resetPassword/{otp}/{email}")
-	public ResponseEntity<Map<String, String>> resetPassword(@PathVariable String email, @PathVariable String otp, @RequestBody ResetPasswordBody resetPassword ) {
-        User user = userService.findByEmail(email)
-        		.orElseThrow(() -> new UsernameNotFoundException("An account with this email does not exist!"));
-        Map<String, String> response = new HashMap<>();
+	@PutMapping("/resetPassword")
+	public ResponseEntity<Map<String, String>> resetPassword(@RequestBody ResetPasswordBody request ) {
 
-			OTP fp = authService.findByOtpAndUser(otp, user);
-			if (fp != null) {
-				if (fp.getExpiresAt().isBefore(LocalDateTime.now())) {
-					authService.deleteFp(fp.getId());
-					response.put("message", "OTP has expired");
-					return new ResponseEntity<>(response, HttpStatus.EXPECTATION_FAILED);
-				}
-				String newPassword = resetPassword.getNewPassword();
-				if (!Objects.equals(newPassword, resetPassword.getRepeatNewPassword())) {
-					response.put("message", "Password does not match!");
-					return new ResponseEntity<>(response, HttpStatus.EXPECTATION_FAILED);
-				}
-				
-				authService.resetPassword(email, newPassword);
-				response.put("message", "Password updated successfuly!");
-				return new ResponseEntity<>(response, HttpStatus.OK);
-			}
-			response.put("message", "OTP does not exist!");
-			return new ResponseEntity<>(response, HttpStatus.NOT_ACCEPTABLE);		
+        Map<String, String> response = authService.resetPassword(request);
+
+		String message = response.get("message");
+		
+		if ("OTP has expired".equals(message)) {
+			return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(response);
+		} else if ("OTP does not exist!".equals(message)) {
+			return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(response);
+		} else if ("Password does not match!".equals(message)) {
+			return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(response);
+		} else if ("Password updated successfully!".equals(message)) {
+			return ResponseEntity.ok(response);
+		} else {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+		}
 	}
-	
-	
 
-	@PostMapping("/adminRegister")
-    public ResponseEntity<Admin> registerAdmin(@RequestBody SignupRequest request) {
-        Admin createdAdmin = adminService.createAdmin(request);
-        return new ResponseEntity<>(createdAdmin, HttpStatus.CREATED);
-    }
-
-	@PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refreshToken(@RequestBody RefreshRequest request) {
-        try {
-            return ResponseEntity.ok(userService.refreshToken(request.getRefreshToken()));
-        } catch (IllegalArgumentException e) {
-            AuthResponse response = new AuthResponse();
-            response.setMessage(e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
-        }
-    }
-    
-	/*@PostMapping("/refresh-token")
-	public void refreshToken(
-        HttpServletRequest request,
-        HttpServletResponse response
-    ) throws IOException {
-        userService.refreshToken(request, response);
-    }
-	*/
+	@PostMapping("/refresh-token")
+	public ResponseEntity<AuthResponse> refreshToken(@RequestBody RefreshRequest request) {
+		AuthResponse response = new AuthResponse();
+		try {
+			response = userService.refreshToken(request.getRefreshToken());
+			return ResponseEntity.ok(response);
+		} catch (UsernameNotFoundException | IllegalArgumentException e) {
+			response.setMessage("Invalid refresh token: " + e.getMessage());
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+		} catch (Exception e) {
+			response.setMessage("An unexpected error occurred: " + e.getMessage());
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+		}
+	}
 }

@@ -1,6 +1,8 @@
 package iset.pfe.mediconnectback.repositories;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,7 +24,7 @@ public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
 
     List<RendezVous> findByMedecinAndRendezVousStatut(Medecin medecin, RendezVousStatut rendezVousStatut);
 
-    boolean existsByMedecinAndAppointmentTime(Medecin medecin, LocalDateTime appointmentTime);
+    boolean existsByMedecinAndAppointmentTime(Medecin medecin, LocalTime appointmentTime);
 
 
     @Query("SELECT DISTINCT rv.patient FROM RendezVous rv " +
@@ -30,4 +32,19 @@ public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
            "LEFT JOIN FETCH dm.fichiers " +
            "WHERE rv.medecin.id = :medecinId")
     List<Patient> findDistinctPatientsByMedecinIdWithDossierMedical(@Param("medecinId") Long medecinId);
+
+    boolean existsByMedecinAndAppointmentDate(Medecin medecin, LocalDate appointmentDate);
+
+  
+    List<RendezVous> findByRendezVousStatut(RendezVousStatut rendezVousStatut);
+
+    List<RendezVous> findByRendezVousStatutIn(List<RendezVousStatut> rendezVousStatut);
+
+    List<RendezVous> findByMedecinAndRendezVousStatutIn(Medecin medecin, List<RendezVousStatut> rendezVousStatut);
+
+    List<RendezVous> findByMedecinIdAndAppointmentDateAndRendezVousStatutIn(
+    Long medecinId, LocalDate date, List<RendezVousStatut> statusList);
+
+
+    long count();
 }

@@ -2,8 +2,12 @@ package iset.pfe.mediconnectback;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableAsync
+@EnableScheduling
 public class MediConnectBackApplication {
 
     public static void main(String[] args) {
@@ -22,7 +26,7 @@ public class MediConnectBackApplication {
             if (userRepository.count() == 0) {
 
                 // Create Admin
-                User admin = new User();
+                Admin admin = new Admin();
                 admin.setFirstName("Admin");
                 admin.setLastName("Root");
                 admin.setEmail("admin@mediconnect.com");
@@ -39,7 +43,7 @@ public class MediConnectBackApplication {
 
                 // Create Patients
                 for (int i = 1; i <= 5; i++) {
-                    User patient = new User();
+                    Patient patient = new Patient();
                     patient.setFirstName("Patient" + i);
                     patient.setLastName("Test");
                     patient.setEmail("patient" + i + "@mediconnect.com");

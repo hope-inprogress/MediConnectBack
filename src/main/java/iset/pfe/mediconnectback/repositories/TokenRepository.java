@@ -12,6 +12,7 @@ import iset.pfe.mediconnectback.entities.Token;
 @Repository
 public interface TokenRepository extends JpaRepository<Token, Long>{
 
+	Optional<Token> findByTokenName(String tokenName);
 	Optional<Token> findByToken(String token);
 	
 	@Query(value = """
