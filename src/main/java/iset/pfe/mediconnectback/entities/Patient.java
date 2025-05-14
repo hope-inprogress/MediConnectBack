@@ -1,6 +1,7 @@
 package iset.pfe.mediconnectback.entities;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -41,9 +42,9 @@ public class Patient extends User {
     @JsonIgnore // Prevent serialization
     private Set<DocumentMedical> documentsMedicaux;
 
-    @ManyToMany(mappedBy = "patients", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonIgnore // Prevent serialization
-    private Set<Medecin> mesMedecins = new HashSet<>(); // Many Patients can have many Medecins
+    private List<Medecin> mesMedecins; // Many Patients can have many Medecins
 
 
 

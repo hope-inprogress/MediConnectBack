@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import iset.pfe.mediconnectback.entities.DocumentMedical;
@@ -62,7 +63,7 @@ public class MedecinService {
 
     // Get all patients associated with a specific medecin, including their DossierMedical and fichiers
     public List<Patient> getPatientsByMedecin(Long medecinId) {
-        // Fetch patients with their DossierMedical and fichiers in a single query
+                    // If the Medecin is not found, return 404        // Fetch patients with their DossierMedical and fichiers in a single query
         return rendezVousRepository.findDistinctPatientsByMedecinIdWithDossierMedical(medecinId);
     }
 

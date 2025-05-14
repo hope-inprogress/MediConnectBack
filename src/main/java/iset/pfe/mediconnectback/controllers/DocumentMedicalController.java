@@ -36,10 +36,20 @@ public class DocumentMedicalController {
     private JwtService jwtService;
 
     @PreAuthorize("hasRole('MEDECIN')")
-    @GetMapping("/{dossierId}/documents")
+    @GetMapping("/{dossierId}")
     public ResponseEntity<List<DocumentMedical>> getAllDocuments(@PathVariable Long dossierId) {
         return ResponseEntity.ok(fileService.getAllDocuments(dossierId));
     }
+
+    //get documents for a patients:
+    @PreAuthorize("hasRole('MEDECIN')")
+    @GetMapping("/patient/{patientId}")
+    public ResponseEntity<List<DocumentMedical>> getDocumentsByPatientId(@PathVariable Long patientId, @RequestHeader("Authorization") String authHeader) {
+        Long medecinId = jwtService.extractIdFromBearer(authHeader);
+        List<DocumentMedical> documents = fileService.getDocumentsByPatientId(patientId, medecinId);
+        return ResponseEntity.ok(documents);
+    }
+
 
     // get documents by dossierId and if it's private see if the medecin is one of th medecins who can see it
 

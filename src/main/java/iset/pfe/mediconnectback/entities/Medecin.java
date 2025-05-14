@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import lombok.AllArgsConstructor;
@@ -56,8 +57,8 @@ public class Medecin extends User {
 	@JsonIgnore // Prevent serialization
     private Set<DocumentMedical> documentsMedicaux;
 
-	@ManyToMany(mappedBy = "medecins", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+	@ManyToMany(mappedBy = "mesMedecins", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
 	@JsonIgnore // Prevent serialization
-	private Set<Patient> mesPatients = new HashSet<>(); // Many Medecins can have many Patients
+	private List<Patient> mesPatients; // Many Medecins can have many Patients
 
 }

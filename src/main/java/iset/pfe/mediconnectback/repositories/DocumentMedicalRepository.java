@@ -11,4 +11,6 @@ import iset.pfe.mediconnectback.entities.DocumentMedical;
 public interface DocumentMedicalRepository extends JpaRepository<DocumentMedical, Long> {
 
     List<DocumentMedical> findByDossierMedicalId(Long dossierMedicalId);
+
+    List<DocumentMedical> findByDossierMedical_Patient_IdAndMedecin_Id(Long patientId, Long medecinId);
 }

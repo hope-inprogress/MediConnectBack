@@ -1,5 +1,7 @@
 package iset.pfe.mediconnectback.services;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -69,7 +71,17 @@ public class DocumentMedicalService {
         if (!doc.getMedecin().getId().equals(medecinId)) {
             throw new RuntimeException("You can only delete documents uploaded by you");
         }
+        DossierMedical dossier = doc.getDossierMedical();
+         // Delete the file from the filesystem
+        try {
+            Files.deleteIfExists(Paths.get(doc.getFichier().substring(1)));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete file: " + e.getMessage());    
+        }
 
+        // Remove the document from the dossier's fichiers list
+        dossier.getFichiers().remove(doc);
+        dossierRepo.save(dossier);
         documentRepo.delete(doc);
     }
 
@@ -84,6 +96,10 @@ public class DocumentMedicalService {
         String fileName = Paths.get(doc.getFichier()).getFileName().toString();
  
         return fileStorageService.loadFileAsResource(fileName);
+    }
+
+    public List<DocumentMedical> getDocumentsByPatientId(Long patientId, Long medecinId) {
+        return documentRepo.findByDossierMedical_Patient_IdAndMedecin_Id(patientId, medecinId);
     }
 
 }

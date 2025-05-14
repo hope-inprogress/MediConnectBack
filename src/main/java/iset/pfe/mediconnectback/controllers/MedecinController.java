@@ -49,7 +49,7 @@ public class MedecinController {
     // Get all medecins (admin only)
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public List<Medecin> getMedecins() {
+    public List<Medecin> getAllMedecins() {
         return medecinService.getAllMedecins();
     }
 
@@ -71,6 +71,14 @@ public class MedecinController {
         return ResponseEntity.ok(appointments);
     }
     
+
+
+
+
+
+
+
+
     // Add a private note for a medecin (only the medecin can add notes to their profile)
     @PreAuthorize("hasRole('MEDECIN')")
     @PostMapping("/notes")
@@ -104,6 +112,21 @@ public class MedecinController {
             return ResponseEntity.ok("Private note deleted successfully");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Error: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/patients")
+    public ResponseEntity<List<Patient>> getPatientsByMedecin(@PathVariable Long medecinId, @RequestHeader("Authorization") String token) {
+        try {
+            List<Patient> patients = medecinService.getPatientsByMedecin(medecinId);
+            return ResponseEntity.ok(patients);
+        } catch (RuntimeException e) {
+            // If the Medecin is not found, return 404
+            if (e.getMessage().equals("Doctor not found")) {
+                return ResponseEntity.status(404).body(null);
+            }
+            // Handle other unexpected errors
+            return ResponseEntity.status(500).body(null);
         }
     }
 
