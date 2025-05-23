@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import iset.pfe.mediconnectback.dtos.RendeVousDTO;
 import iset.pfe.mediconnectback.dtos.StatusUpdateRequestDTO;
 import iset.pfe.mediconnectback.entities.RendezVous;
 import iset.pfe.mediconnectback.enums.RendezVousStatut;
@@ -27,7 +28,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @CrossOrigin(origins = "http://localhost:5173")
-@RequestMapping("/rendezvous")
+@RequestMapping("/api/rendezvous")
 public class RendezVousController {
     
     @Autowired
@@ -36,78 +37,32 @@ public class RendezVousController {
     @Autowired
     private JwtService jwtService;
 
-    @Autowired
-    private MedecinService medecinService;
-    
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public List<RendezVous> getAllRendezVous() {
+    public List<RendeVousDTO> getAllRendezVous() {
         return rendezVousService.getAllRendezVous();
     }
 
-    @PreAuthorize("hasRole('MEDECIN')")
-    @PutMapping("/{id}")
-    public ResponseEntity<Object> updateRendezvousStatus(@PathVariable Long id, @RequestBody Map<String, String> requestBody) {
-        try {
-            // Extract the status from the request body
-            String newStatusStr = requestBody.get("rendezStatut");
-            
-            // Ensure the status is provided
-            if (newStatusStr == null) {
-                return ResponseEntity.badRequest().body("Error: 'rendezStatut' is required in the request body");
-            }
-    
-            // Try to convert the string to the enum
-            RendezVousStatut newStatus;
-            try {
-                newStatus = RendezVousStatut.valueOf(newStatusStr);
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.badRequest().body("Error: Invalid 'rendezStatut'. Valid values are: " + Arrays.toString(RendezVousStatut.values()));
-            }
-    
-            // Call the service to update the rendezvous status
-            RendezVous updatedRendezvous = rendezVousService.updateRendezvousStatus(id, newStatus);
-            
-            // Handle not found or no content
-            if (updatedRendezvous == null) {
-                return ResponseEntity.status(404).body("Rendezvous not found or status not updated");
-            }
-    
-            // Return the updated rendezvous entity
-            return ResponseEntity.ok(updatedRendezvous);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(500).body("Error: " + e.getMessage());
-        }
+        @PreAuthorize("hasRole('MEDECIN')")
+    @PutMapping("/{id}/u-status")
+    public ResponseEntity<RendezVous> updateStatusManually(
+            @RequestHeader("Authorization") String token,
+            @PathVariable("id") Long appointmentId,
+            @RequestBody @Valid StatusUpdateRequestDTO dto) {
+        
+        // Extract doctor ID from token instead of DTO
+        Long doctorId = jwtService.extractIdFromBearer(token);
+        
+        RendezVous updated = rendezVousService.updateStatusManually(
+                appointmentId,
+                dto.getNewStatus(),
+                dto.getErrorMessage(),
+                doctorId // Use the ID from token
+        );
+        
+        return ResponseEntity.ok(updated);
     }
-
     
-    // Update the status of an appointment (Only the assigned medecin can update)
-    @PreAuthorize("hasRole('MEDECIN')")
-    @PutMapping("/{rendezVousId}/status")
-    public ResponseEntity<String> updateAppointmentStatus(@RequestHeader("Authorization") String token, @PathVariable Long rendezVousId, @RequestBody Map<String, String> request) {
-        try {
-            String status = request.get("status");
-            Long medecinId = jwtService.extractIdFromBearer(token);
-            medecinService.updateAppointmentStatus(rendezVousId, status, medecinId);
-            return ResponseEntity.ok("Appointment status updated successfully.");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Error: " + e.getMessage());
-        }
-    }
-
-    @PutMapping("/{id}/update-status")
-public ResponseEntity<RendezVous> updateStatusManually(
-        @PathVariable("id") Long appointmentId,
-        @RequestBody @Valid StatusUpdateRequestDTO dto) {
-
-    RendezVous updated = rendezVousService.updateStatusManually(
-            appointmentId,
-            dto.getNewStatus(),
-            dto.getErrorMessage(),
-            dto.getDoctorId()
-    );
-
-    return ResponseEntity.ok(updated);
-}
     
 }

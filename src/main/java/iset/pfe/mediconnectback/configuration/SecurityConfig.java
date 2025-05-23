@@ -110,7 +110,7 @@ public class SecurityConfig implements WebMvcConfigurer{
     @Override
     public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/uploads/**") // URL pattern
-                .addResourceLocations("file:C:/Users/amela/Desktop/Stage PFE/MediConnectBack/uploads/"); // actual directory
+                .addResourceLocations("file:uploads/"); // actual directory
     }
 
     @Bean
@@ -125,7 +125,7 @@ public class SecurityConfig implements WebMvcConfigurer{
         registry.addMapping("/**")
                 .allowedOrigins("http://localhost:5173")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("Authorization", "Content-Type", "Accept")
+                .allowedHeaders("Authorization", "Content-Type", "Accept", "x-refresh-token")
                 .allowCredentials(true);  // To allow cookies and authentication headers
     }
 
@@ -134,7 +134,7 @@ public class SecurityConfig implements WebMvcConfigurer{
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "x-refresh-token"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L); // Cache preflight for 1 hour
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

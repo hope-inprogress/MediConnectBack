@@ -1,20 +1,26 @@
 package iset.pfe.mediconnectback.services;
 
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import iset.pfe.mediconnectback.dtos.DocumentMedicalDto;
+import iset.pfe.mediconnectback.dtos.DossierMedicalDTO;
+import iset.pfe.mediconnectback.dtos.PatientDTO;
 import iset.pfe.mediconnectback.entities.DocumentMedical;
 import iset.pfe.mediconnectback.entities.DossierMedical;
 import iset.pfe.mediconnectback.entities.Medecin;
 import iset.pfe.mediconnectback.entities.Note;
 import iset.pfe.mediconnectback.entities.Patient;
 import iset.pfe.mediconnectback.entities.RendezVous;
+import iset.pfe.mediconnectback.enums.UserStatus;
 import iset.pfe.mediconnectback.repositories.DocumentMedicalRepository;
 import iset.pfe.mediconnectback.repositories.DossierMedicalRepository;
 import iset.pfe.mediconnectback.repositories.MedecinRepository;
@@ -62,9 +68,70 @@ public class MedecinService {
     }
 
     // Get all patients associated with a specific medecin, including their DossierMedical and fichiers
-    public List<Patient> getPatientsByMedecin(Long medecinId) {
-                    // If the Medecin is not found, return 404        // Fetch patients with their DossierMedical and fichiers in a single query
-        return rendezVousRepository.findDistinctPatientsByMedecinIdWithDossierMedical(medecinId);
+    @Transactional(readOnly = true)
+    public List<PatientDTO> getPatientsByMedecin(Long medecinId) {
+        List<Patient> patients = rendezVousRepository.findDistinctPatientsByMedecinIdWithDossierMedical(medecinId);
+        
+        // Convert Patient entities to PatientDTOs
+        return patients.stream()
+                .map(this::convertToPatientDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Integer countActivePatientsByMedecinId(Long medecinId) {
+        List<PatientDTO> patients = getPatientsByMedecin(medecinId);
+        List<PatientDTO> activePatients = new ArrayList<>();
+        for (PatientDTO patient : patients) {
+            if (patient.getUserStatus() == UserStatus.Active) {
+                activePatients.add(patient);
+            }
+        }
+        return activePatients.size();
+    }
+
+    private PatientDTO convertToPatientDTO(Patient patient) {
+        PatientDTO dto = new PatientDTO();
+
+        dto.setId(patient.getId());
+        dto.setFirstName(patient.getFirstName());
+        dto.setLastName(patient.getLastName());
+        dto.setEmail(patient.getEmail());
+        dto.setAddress(patient.getAddress());
+        dto.setPhoneNumber(patient.getPhoneNumber());
+        dto.setDateNaissance(patient.getDateNaissance());
+        dto.setSexe(patient.getSexe() != null ? patient.getSexe().toString() : null);
+        dto.setImageUrl(patient.getImageUrl());
+        dto.setUserStatus(patient.getUserStatus());
+             // Fetch and map DossierMedical and its fichiers
+        DossierMedical dossierMedical = dossierMedicalRepository.findByPatientIdWithFichiers(patient.getId());
+
+        if (dossierMedical != null) {
+            DossierMedicalDTO dossierMedicalDTO = new DossierMedicalDTO();
+            dossierMedicalDTO.setId(dossierMedical.getId());
+            dossierMedicalDTO.setDateCreated(dossierMedical.getDateCreated());
+
+            // Map the list of DocumentMedical entities to DocumentMedicalDTOs
+            List<DocumentMedicalDto> fichierDTOs = dossierMedical.getFichiers().stream()
+                    .map(this::convertToDocumentMedicalDTO)
+                    .collect(Collectors.toList());
+
+            dossierMedicalDTO.setFichiers(fichierDTOs);
+            dto.setDossierMedical(dossierMedicalDTO);
+        }
+        
+        return dto;
+    }
+
+    private DocumentMedicalDto convertToDocumentMedicalDTO(DocumentMedical document) {
+        DocumentMedicalDto dto = new DocumentMedicalDto();
+        dto.setId(document.getId());
+        dto.setType(document.getType());
+        dto.setFichier(document.getFichier()); // This is your file name/path/URL
+        dto.setUploadDate(document.getCreatedAt());
+        dto.setUploaderId(document.getUploader().getId());
+        dto.setVisibility(document.getVisibility().name());
+        return dto;
     }
 
     // Get all appointments (rendezvous) for a specific medecin
@@ -73,27 +140,10 @@ public class MedecinService {
         return rendezVousRepository.findByMedecinId(medecinId);
     }
 
-
-    // Retrieve all DossierMedical records that belong to patients linked with this medecin
-    public List<DossierMedical> getDossierMedical(Long medecinId) {
-        return dossierMedicalRepository.findByMedecinId(medecinId);
-    }
-
-
-    // Retrieve all documents in a dossier, including the ones added by other medecins
-    public List<DocumentMedical> getDocumentsByDossier(Long dossierId) {
-        return documentMedicalRepository.findByDossierMedicalId(dossierId);
-    }
-
-     // Delete a document if uploaded by this medecin
-     public void deleteDocument(Long docId, Long medecinId) {
-        DocumentMedical doc = documentMedicalRepository.findById(docId)
-                .orElseThrow(() -> new RuntimeException("Document not found"));
-
-        if (!doc.getMedecin().getId().equals(medecinId)) {
-            throw new RuntimeException("Not authorized to delete this document");
-        }
-        documentMedicalRepository.delete(doc);
+    // Get the next appointment for a specific medecin
+    public List<RendezVous> getNextAppointmentsByMedecin(Long medecinId) {
+        // Fetch and return the next appointment for this Medecin
+        return rendezVousRepository.findUpcomingByMedecinId(medecinId);
     }
 
     // Add a private note for this medecin only
@@ -121,15 +171,39 @@ public class MedecinService {
         noteRepository.delete(note);
     }
 
-    public void updateAppointmentStatus(Long appointmentId, String status, Long medecinId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'updateAppointmentStatus'");
+    public Note updateNote(Long noteId, Long medecinId, Note updatedNote) {
+        return noteRepository.findById(noteId).map(note -> {
+            if (!note.getMedecin().getId().equals(medecinId)) {
+                throw new RuntimeException("Unauthorized to update this note.");
+            }
+            note.setTitle(updatedNote.getTitle());
+            note.setContent(updatedNote.getContent());
+            note.setDateAjout(updatedNote.getDateAjout());
+            return noteRepository.save(note);
+        }).orElseThrow(() -> new RuntimeException("Note not found with id: " + noteId));
+    }
+
+    public List<PatientDTO> getLatestPatientsByMedecin(Long medecinId) {
+        Pageable pageable = PageRequest.of(0, 5); // Get the latest 5 patients
+        List<RendezVous> rendezVousList = rendezVousRepository.findTop5LatestRendezVousByMedecinId(medecinId, pageable);
+
+        List<PatientDTO> patientDTOs = new ArrayList<>();
+
+        for (RendezVous rv : rendezVousList) {
+            Patient patient = rv.getPatient();
+
+            PatientDTO dto = new PatientDTO();
+            dto.setId(patient.getId());
+            dto.setFirstName(patient.getFirstName());
+            dto.setLastName(patient.getLastName());
+            dto.setDateNaissance(patient.getDateNaissance());
+            dto.setRendezVousCreatedDate(rv.getCreatedAt()); // You need to add this field in PatientDTO
+
+            patientDTOs.add(dto);
+        }
+
+        return patientDTOs;
     }
 
 
-    // Get all appointments along with their statuses (completed, cancelled, no-show, etc.)
-   /*  public List<RendezVous> getAllRendezVousWithStatus(Long medecinId) {
-    }*/
-
-    
 }

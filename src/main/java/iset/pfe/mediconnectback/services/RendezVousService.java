@@ -5,11 +5,16 @@ import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import iset.pfe.mediconnectback.dtos.MedecinResponse;
+import iset.pfe.mediconnectback.dtos.PatientResponse;
+import iset.pfe.mediconnectback.dtos.RendeVousDTO;
 import iset.pfe.mediconnectback.entities.Medecin;
+import iset.pfe.mediconnectback.entities.Patient;
 import iset.pfe.mediconnectback.entities.RendezVous;
 import iset.pfe.mediconnectback.enums.RendezVousStatut;
 import iset.pfe.mediconnectback.repositories.RendezVousRepository;
@@ -69,8 +74,61 @@ public class RendezVousService {
         return rendezVousRepository.save(rendezvous);
     }
 
-    public List<RendezVous> getAllRendezVous() {
-        return rendezVousRepository.findAll();
+    public List<RendeVousDTO> getAllRendezVous() {
+        List<RendezVous> rendezVousList = rendezVousRepository.findAll();
+        
+        return rendezVousList.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    private RendeVousDTO convertToDto(RendezVous rendezVous) {
+        RendeVousDTO dto = new RendeVousDTO();
+        dto.setId(rendezVous.getId());
+        dto.setAppointmentTime(rendezVous.getAppointmentTime());
+        dto.setAppointmentDate(rendezVous.getAppointmentDate());
+        dto.setReason(rendezVous.getReason());
+        dto.setRendezVousStatut(rendezVous.getRendezVousStatut());
+        dto.setCreatedAt(rendezVous.getCreatedAt());
+        
+        // Map Patient
+        if (rendezVous.getPatient() != null) {
+            Patient patient = rendezVous.getPatient();
+            PatientResponse patientResponse = new PatientResponse();
+            patientResponse.setFirstName(patient.getFirstName());
+            patientResponse.setLastName(patient.getLastName());
+            patientResponse.setEmail(patient.getEmail());
+            patientResponse.setAddress(patient.getAddress());
+            patientResponse.setImageUrl(patient.getImageUrl());
+            patientResponse.setAccountStatus(patient.getAccountStatus() != null ? patient.getAccountStatus().name() : null);
+            patientResponse.setPhoneNumber(patient.getPhoneNumber());
+            patientResponse.setDateNaissance(patient.getDateNaissance());
+            patientResponse.setSexe(patient.getSexe() != null ? patient.getSexe().name() : null);
+            dto.setPatient(patientResponse);
+        }
+        
+        // Map Medecin
+        if (rendezVous.getMedecin() != null) {
+            Medecin medecin = rendezVous.getMedecin();
+            MedecinResponse medecinResponse = new MedecinResponse();
+            medecinResponse.setFirstName(medecin.getFirstName());
+            medecinResponse.setLastName(medecin.getLastName());
+            medecinResponse.setEmail(medecin.getEmail());
+            medecinResponse.setAddress(medecin.getAddress());
+            medecinResponse.setImageUrl(medecin.getImageUrl());
+            medecinResponse.setAccountStatus(medecin.getAccountStatus() != null ? medecin.getAccountStatus().name() : null);
+            medecinResponse.setCodeMedical(medecin.getCodeMedical());
+            medecinResponse.setPhoneNumber(medecin.getPhoneNumber());
+            medecinResponse.setWorkPlace(medecin.getWorkPlace());
+            medecinResponse.setStartTime(medecin.getStartTime());
+            medecinResponse.setEndTime(medecin.getEndTime());
+            medecinResponse.setIsAvailable(medecin.getIsAvailable());
+            medecinResponse.setStartingPrice(medecin.getStartingPrice());
+            medecinResponse.setDescription(medecin.getDescription());
+            dto.setMedecin(medecinResponse);
+        }
+        
+        return dto;
     }
 
     public Map<String, Long> getRendezVousStats() {
@@ -78,11 +136,11 @@ public class RendezVousService {
         stats.put("Confirmé", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Confirmed));
         stats.put("Annulé", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Cancelled));
         stats.put("Rejeté", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Rejected));
-        stats.put("En attente", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Pending));
-        stats.put("Réservé", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Rescheduled));
-        stats.put("Réservé Demande", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Reschedule_Requested));
+        stats.put("En_attente", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Pending));
+        stats.put("Reprogrammé", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Rescheduled));
+        stats.put("Reprogrammer_Demande", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Reschedule_Requested));
         stats.put("Terminé", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.Completed));
-        stats.put("Pas de présentation", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.No_Show));
+        stats.put("Pas_de_présentation", rendezVousRepository.countByRendezVousStatut(RendezVousStatut.No_Show));
         stats.put("Total", rendezVousRepository.count());
         return stats;
     }

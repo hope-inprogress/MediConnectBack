@@ -10,7 +10,9 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
@@ -24,8 +26,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Patient extends User {
-
-    private Long CIN;
+  
 
     @JsonIgnore
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -34,13 +35,19 @@ public class Patient extends User {
     @Column(name = "blocked_by_medecin_ids")
     private String blockedByMedecinIds;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "blocked_by_medecin_id")
+    @JsonIgnore
+    private Medecin blockedBy;
+
+
     @OneToOne(mappedBy = "patient", cascade = CascadeType.ALL)
     @JsonIgnore // Prevent serialization
     private DossierMedical dossierMedical;
 
-    @OneToMany(mappedBy = "patient")  // One Patient can upload many documents
+    @OneToMany(mappedBy = "uploader")  // One Patient can upload many documents
     @JsonIgnore // Prevent serialization
-    private Set<DocumentMedical> documentsMedicaux;
+    private List<DocumentMedical> documentsMedicaux;
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonIgnore // Prevent serialization

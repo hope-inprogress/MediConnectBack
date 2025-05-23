@@ -48,8 +48,8 @@ public class Motifs {
     private User targetUser;
 
     // The user who performed the action (optional — could be null for automatic events)
-    @ManyToOne
-    @JoinColumn(name = "performed_by_user_id")
-    private User performedBy;
+   // @ManyToOne
+    //@JoinColumn(name = "performed_by_user_id")
+    //private User performedBy;
     
 }

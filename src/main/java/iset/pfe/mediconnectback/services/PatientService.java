@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import iset.pfe.mediconnectback.entities.Patient;
 import iset.pfe.mediconnectback.repositories.PatientRepository;
 
 @Service
@@ -24,4 +25,11 @@ public class PatientService {
         
         return monthlyCounts;
     }
+
+    public Patient getPatientById(Long id) {
+        return patientRepository.findById(id).orElse(null);
+    }
+
 }
+
+

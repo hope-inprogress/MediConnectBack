@@ -2,17 +2,27 @@ package iset.pfe.mediconnectback.entities;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
 
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import iset.pfe.mediconnectback.enums.DocumentVisibility;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -23,6 +33,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class DocumentMedical {
 
     @Id
@@ -35,6 +46,10 @@ public class DocumentMedical {
 
     @CreatedDate
     private LocalDateTime createdAt;
+
+    @Lob
+    @Column(name = "file_content", columnDefinition = "LONGBLOB")
+    private byte[] fileContent;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dossier_medical_id")
@@ -42,10 +57,17 @@ public class DocumentMedical {
     private DossierMedical dossierMedical;
 
     @ManyToOne
-    @JoinColumn(name = "medecin_id", referencedColumnName = "id")
-    private Medecin medecin;   // Link to Medecin (if the document was uploaded by a doctor)
+    @JoinColumn(name = "uploader_id", referencedColumnName = "id")
+    private User uploader; //can be a medecin or a patient
 
-    @ManyToOne
-    @JoinColumn(name = "patient_id", referencedColumnName = "id")
-    private Patient patient; // Link to Patient (if the document was uploaded by the patient)
+    @Enumerated(EnumType.STRING)
+    private DocumentVisibility visibility;
+
+    @ManyToMany // one doc can be visible by many medecins, and one medecin can see many docs
+    @JoinTable(
+        name = "document_visible_medecins",
+        joinColumns = @JoinColumn(name = "document_id"),
+        inverseJoinColumns = @JoinColumn(name = "medecin_id")
+    )
+    private List<Medecin> allowedMedecins; // Only for PRIVATE docs
 }

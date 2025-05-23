@@ -1,9 +1,28 @@
 package iset.pfe.mediconnectback;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import iset.pfe.mediconnectback.entities.Admin;
+import iset.pfe.mediconnectback.entities.Medecin;
+import iset.pfe.mediconnectback.entities.Patient;
+import iset.pfe.mediconnectback.enums.AccountStatus;
+import iset.pfe.mediconnectback.enums.Sexe;
+import iset.pfe.mediconnectback.enums.UserRole;
+import iset.pfe.mediconnectback.enums.UserStatus;
+import iset.pfe.mediconnectback.repositories.MedecinRepository;
+import iset.pfe.mediconnectback.repositories.MotifsRepository;
+import iset.pfe.mediconnectback.repositories.RendezVousRepository;
+import iset.pfe.mediconnectback.repositories.UserRepository;
 
 @SpringBootApplication
 @EnableAsync
@@ -14,7 +33,7 @@ public class MediConnectBackApplication {
         SpringApplication.run(MediConnectBackApplication.class, args);
     }
 
-   /* @Bean
+    /*@Bean
     CommandLineRunner initData(
             UserRepository userRepository,
             MedecinRepository medecinRepository,
@@ -56,7 +75,7 @@ public class MediConnectBackApplication {
 					patient.setCreatedDate(LocalDateTime.now());
 
                     // Status handling
-                    if (i % 3 == 0) {
+                    /*if (i % 3 == 0) {
                         patient.setUserStatus(UserStatus.Blocked);
                         patient.setAccountStatus(AccountStatus.NotVerified);
 
@@ -73,11 +92,12 @@ public class MediConnectBackApplication {
                         patient.setAccountStatus(AccountStatus.Verified);
 						userRepository.save(patient);
                     } else {
+                        
+                    }
+                    
                         patient.setUserStatus(UserStatus.Active);
                         patient.setAccountStatus(AccountStatus.Verified);
 						userRepository.save(patient);
-                    }
-
                     
                 }
 
@@ -100,30 +120,11 @@ public class MediConnectBackApplication {
                     medecin.setStartTime(LocalTime.of(8, 0));
                     medecin.setEndTime(LocalTime.of(16, 0));
                     medecin.setIsAvailable(i % 2 == 0);
-
-                    if (i % 3 == 0) {
-						medecin.setUserStatus(UserStatus.Undecided);
-                        medecin.setAccountStatus(AccountStatus.Verified);
-
-						medecinRepository.save(medecin);
-
+                    medecin.setUserStatus(UserStatus.Active);
+                    medecin.setAccountStatus(AccountStatus.Verified);
+					medecinRepository.save(medecin);
                         
-                    } else if (i % 3 == 1) {
-						medecin.setUserStatus(UserStatus.Blocked);
-                        medecin.setAccountStatus(AccountStatus.NotVerified);
-
-						medecinRepository.save(medecin);
-                        Motifs motif = new Motifs();
-						motif.setEventType("BLOCK");
-						motif.setEventTime(LocalDate.now());
-						motif.setReason("Doctor blocked for violating terms");
-						motif.setUser(medecin);
-                        motifRepository.save(motif);
-                    } else {
-                        medecin.setUserStatus(UserStatus.Active);
-                        medecin.setAccountStatus(AccountStatus.Verified);
-						medecinRepository.save(medecin);
-                    }
+                    
 				}
 			}
 		};

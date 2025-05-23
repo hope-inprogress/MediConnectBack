@@ -9,9 +9,9 @@ import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import lombok.AllArgsConstructor;
@@ -26,6 +26,7 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode(callSuper = true)
 public class Medecin extends User {
 
+	@Column(unique = true, nullable = true)
 	private String codeMedical;
 
 	private String specialite;
@@ -40,6 +41,9 @@ public class Medecin extends User {
 
 	private boolean autoManageAppointments; // true = auto, false = manual
 
+	private Long  startingPrice; // prix de consultation,
+
+	private String description;
 
 	@JsonIgnore
 	@OneToMany(mappedBy = "medecin", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -48,17 +52,17 @@ public class Medecin extends User {
 	@OneToMany(mappedBy = "medecin", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<Note> notes = new ArrayList<>();
-    
-    //@OneToMany(mappedBy = "medecin", cascade = CascadeType.ALL)
-    //@JsonIgnore // Prevent serialization
-    //private List<DossierMedical> dossiersMedicaux = new ArrayList<>();
 
-	@OneToMany(mappedBy = "patient")  // One Patient can upload many documents
+	@OneToMany(mappedBy = "uploader")  // One Patient can upload many documents
 	@JsonIgnore // Prevent serialization
-    private Set<DocumentMedical> documentsMedicaux;
+    private List<DocumentMedical> documentsMedicaux;
 
 	@ManyToMany(mappedBy = "mesMedecins", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
 	@JsonIgnore // Prevent serialization
 	private List<Patient> mesPatients; // Many Medecins can have many Patients
+
+	@OneToMany(mappedBy = "blockedBy")
+    @JsonIgnore
+    private Set<Patient> blockedPatients = new HashSet<>();
 
 }

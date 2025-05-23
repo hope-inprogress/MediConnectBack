@@ -15,13 +15,13 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class FileStorageService {
     
-    private final String uploadDir = "uploads/medical_files/";
+    private final String UPLOAD_DIR = "uploads/medical_files/";
 
     private  final Path fileStorageLocation;
 
     public FileStorageService() throws IOException {
-        this.fileStorageLocation = Paths.get("uploads/medical_files").toAbsolutePath().normalize();
-        Files.createDirectories(Paths.get(uploadDir + "temp/")); 
+        this.fileStorageLocation = Paths.get(UPLOAD_DIR).toAbsolutePath().normalize();
+        Files.createDirectories(Paths.get(UPLOAD_DIR)); 
     }
 
     public String storeFile(MultipartFile file) {
@@ -46,6 +46,9 @@ public class FileStorageService {
         try {
             Path filePath = fileStorageLocation.resolve(fichier).normalize();
             Resource resource = new UrlResource(filePath.toUri());
+            System.out.println("Looking for file at: " + fileStorageLocation.resolve(fichier).normalize());
+            System.out.println("File exists: " + Files.exists(Paths.get(fichier)));
+
             if (resource.exists()) {
                 return resource;
             } else {

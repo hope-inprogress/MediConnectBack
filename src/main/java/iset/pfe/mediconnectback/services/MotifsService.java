@@ -31,7 +31,7 @@ public class MotifsService {
             motifDto.setReason(motif.getReason());
             motifDto.setDescription(motif.getDescription());
             motifDto.setTargetUserId(motif.getTargetUser().getId());
-            motifDto.setPerformedById(motif.getPerformedBy().getId());
+            //motifDto.setPerformedById(motif.getPerformedBy().getId());
             return motifDto;
         }).toList();
 

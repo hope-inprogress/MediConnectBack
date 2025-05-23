@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import iset.pfe.mediconnectback.dtos.UserDTO;
 import iset.pfe.mediconnectback.entities.User;
 import iset.pfe.mediconnectback.services.JwtService;
 import iset.pfe.mediconnectback.services.UserService;
@@ -27,8 +28,8 @@ public class AdminController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/users")
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> usersWithSpecialty = userService.getAllUsersWithSpecialite();
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        List<UserDTO> usersWithSpecialty = userService.getAllUsersWithSpecialite();
         return ResponseEntity.ok(usersWithSpecialty);
     }
 

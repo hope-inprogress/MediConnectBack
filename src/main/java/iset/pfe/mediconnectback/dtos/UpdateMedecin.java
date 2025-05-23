@@ -14,10 +14,13 @@ import lombok.NoArgsConstructor;
 public class UpdateMedecin extends UpdateUser {
 
     private String codeMedical;
-    private String specialite;
     private String workPlace;
     private LocalTime startTime;
     private LocalTime endTime;
     private Boolean isAvailable;
+    private Boolean autoManageAppointments; // true = auto, false = manual
+    private Long startingPrice; // prix de consultation
+    private String description;
+
     
 }

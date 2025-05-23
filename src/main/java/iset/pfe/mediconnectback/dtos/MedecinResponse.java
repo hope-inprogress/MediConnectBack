@@ -1,5 +1,7 @@
 package iset.pfe.mediconnectback.dtos;
 
+import java.time.LocalTime;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,5 +19,12 @@ public class MedecinResponse {
     private String accountStatus;
     private String codeMedical;
     private Integer phoneNumber;
+    private String workPlace;
+    private LocalTime startTime;
+    private LocalTime endTime;
+    private Boolean isAvailable;
+    private Long startingPrice; // prix de consultation,
+    private Boolean autoManageAppointments; // true = auto, false = manual
+    private String Description;
     
 }

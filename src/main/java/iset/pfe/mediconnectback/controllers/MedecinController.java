@@ -18,13 +18,13 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import iset.pfe.mediconnectback.entities.DocumentMedical;
+import iset.pfe.mediconnectback.dtos.PatientDTO;
 import iset.pfe.mediconnectback.entities.Medecin;
 import iset.pfe.mediconnectback.entities.Note;
-import iset.pfe.mediconnectback.entities.Patient;
 import iset.pfe.mediconnectback.entities.RendezVous;
 import iset.pfe.mediconnectback.entities.User;
 import iset.pfe.mediconnectback.enums.UserRole;
+import iset.pfe.mediconnectback.repositories.MedecinRepository;
 import iset.pfe.mediconnectback.services.JwtService;
 import iset.pfe.mediconnectback.services.MedecinService;
 import iset.pfe.mediconnectback.services.UserService;
@@ -45,6 +45,7 @@ public class MedecinController {
     private UserService userService;
 
     @Autowired
+    private MedecinRepository medecinRepository;
 
     // Get all medecins (admin only)
     @PreAuthorize("hasRole('ADMIN')")
@@ -56,10 +57,19 @@ public class MedecinController {
     // Get all patients for a specific medecin
     @PreAuthorize("hasRole('MEDECIN')")
     @GetMapping("/me/patients")
-    public ResponseEntity<List<Patient>> getPatientsByMedecin(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<PatientDTO>> getPatientsByMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<Patient> patients = medecinService.getPatientsByMedecin(medecinId);
-        return ResponseEntity.ok(patients);
+        List<PatientDTO> patientDTOs = medecinService.getPatientsByMedecin(medecinId);
+        return ResponseEntity.ok(patientDTOs);
+    }
+
+    // Get Latest 5 patients for a specific medecin
+    @PreAuthorize("hasRole('MEDECIN')")
+    @GetMapping("/me/patients/latest")
+    public ResponseEntity<List<PatientDTO>> getLatestPatientsByMedecin(@RequestHeader("Authorization") String token) {
+        Long medecinId = jwtService.extractIdFromBearer(token);
+        List<PatientDTO> latestPatients = medecinService.getLatestPatientsByMedecin(medecinId);
+        return ResponseEntity.ok(latestPatients);
     }
 
     // Get all appointments (RendezVous) for a specific medecin
@@ -70,14 +80,38 @@ public class MedecinController {
         List<RendezVous> appointments = medecinService.getAppointmentsByMedecin(medecinId);
         return ResponseEntity.ok(appointments);
     }
+
+    @PreAuthorize("hasRole('MEDECIN')")
+    @GetMapping("/me/appointments/next")
+    public ResponseEntity<List<RendezVous>> getNextAppointments(@RequestHeader("Authorization") String token) {
+        Long medecinId = jwtService.extractIdFromBearer(token);
+        List<RendezVous> nextAppointment = medecinService.getNextAppointmentsByMedecin(medecinId);
+        return ResponseEntity.ok(nextAppointment);
+    }
+
+    @PreAuthorize("hasRole('MEDECIN')")
+    @PutMapping("/auto-manage")
+    public ResponseEntity<?> updateAutoManageAppointments(
+        @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, Object> body) {
+                Long medecinId = jwtService.extractIdFromBearer(token);
+        // Extract autoManageAppointments from body
+        Object value = body.get("autoManageAppointments");
+        if (!(value instanceof Boolean)) {
+            return ResponseEntity.badRequest().body("autoManageAppointments must be a boolean");
+        }
     
-
-
-
-
-
-
-
+        // Update the field directly in the database
+        int updatedRows = medecinRepository.updateAutoManageAppointments(medecinId, (Boolean) value);
+        if (updatedRows == 0) {
+            return ResponseEntity.notFound().build();
+        }
+    
+        // Fetch the updated Medecin to return
+        Medecin updatedMedecin = medecinRepository.findById(medecinId)
+                .orElseThrow(() -> new IllegalArgumentException("Doctor not found"));
+        return ResponseEntity.ok(updatedMedecin);
+    }
 
     // Add a private note for a medecin (only the medecin can add notes to their profile)
     @PreAuthorize("hasRole('MEDECIN')")
@@ -101,6 +135,22 @@ public class MedecinController {
         return ResponseEntity.ok(notes);
     }
 
+        // Update a private note (only the medecin who created it can update it)
+    @PreAuthorize("hasRole('MEDECIN')")
+    @PutMapping("/update/{noteId}")
+    public ResponseEntity<String> updatePrivateNote(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long noteId,
+            @RequestBody Note updatedNote) {
+        try {
+            Long medecinId = jwtService.extractIdFromBearer(token);
+            medecinService.updateNote(noteId, medecinId, updatedNote); // Corrected param order
+            return ResponseEntity.ok("Private note updated successfully");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Error: " + e.getMessage());
+        }
+    }
+
     // Delete a private note (only the medecin who created it can delete it)
     @PreAuthorize("hasRole('MEDECIN')")
     @DeleteMapping("/notes/{noteId}")
@@ -112,21 +162,6 @@ public class MedecinController {
             return ResponseEntity.ok("Private note deleted successfully");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Error: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/patients")
-    public ResponseEntity<List<Patient>> getPatientsByMedecin(@PathVariable Long medecinId, @RequestHeader("Authorization") String token) {
-        try {
-            List<Patient> patients = medecinService.getPatientsByMedecin(medecinId);
-            return ResponseEntity.ok(patients);
-        } catch (RuntimeException e) {
-            // If the Medecin is not found, return 404
-            if (e.getMessage().equals("Doctor not found")) {
-                return ResponseEntity.status(404).body(null);
-            }
-            // Handle other unexpected errors
-            return ResponseEntity.status(500).body(null);
         }
     }
 
@@ -151,6 +186,14 @@ public class MedecinController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: " + e.getMessage());
         }
+    }
+    
+    @PreAuthorize("hasRole('MEDECIN')")
+    @GetMapping("/getautomanage")
+    public ResponseEntity<Boolean> getAutoManageAppointments(@RequestHeader("Authorization") String token) {
+        Long medecinId = jwtService.extractIdFromBearer(token);
+        Medecin medecin = medecinService.getMedecinById(medecinId);
+        return ResponseEntity.ok(medecin.isAutoManageAppointments());
     }
     
 

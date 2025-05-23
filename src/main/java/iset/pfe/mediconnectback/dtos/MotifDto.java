@@ -18,6 +18,5 @@ public class MotifDto {
     private String reason;
     private String description;
     private Long targetUserId;
-    private Long performedById;
 
 }

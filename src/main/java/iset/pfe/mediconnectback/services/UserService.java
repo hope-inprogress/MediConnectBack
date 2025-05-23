@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +23,6 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,7 +38,9 @@ import iset.pfe.mediconnectback.dtos.SignupRequest;
 import iset.pfe.mediconnectback.dtos.UpdateMedecin;
 import iset.pfe.mediconnectback.dtos.UpdatePatient;
 import iset.pfe.mediconnectback.dtos.UpdateUser;
+import iset.pfe.mediconnectback.dtos.UserDTO;
 import iset.pfe.mediconnectback.entities.Admin;
+import iset.pfe.mediconnectback.entities.DossierMedical;
 import iset.pfe.mediconnectback.entities.Medecin;
 import iset.pfe.mediconnectback.entities.Token;
 import iset.pfe.mediconnectback.entities.Motifs;
@@ -51,6 +53,7 @@ import iset.pfe.mediconnectback.enums.TokenType;
 import iset.pfe.mediconnectback.enums.UserRole;
 import iset.pfe.mediconnectback.enums.UserStatus;
 import iset.pfe.mediconnectback.repositories.DossierMedicalRepository;
+import iset.pfe.mediconnectback.repositories.MedecinRepository;
 import iset.pfe.mediconnectback.repositories.MotifsRepository;
 import iset.pfe.mediconnectback.repositories.PatientRepository;
 import iset.pfe.mediconnectback.repositories.TokenRepository;
@@ -82,7 +85,7 @@ public class UserService {
 	private MotifsRepository motifsRepo;
 
     @Autowired
-    private DossierMedicalRepository dossierMedicalRepo;
+    private MedecinRepository medecinRepository;
 
 	@Autowired
     @Value("${file.upload-dir}")
@@ -104,23 +107,18 @@ public class UserService {
 		
 		User user = userRepo.findUserByEmail(request.getEmail())
 			.orElseThrow(() -> new UsernameNotFoundException("User not found: " + request.getEmail()));
-		
-       /*      // Check if the account is deleted
-        if (user.getUserStatus()== UserStatus.Deleted) {
-            throw new RuntimeException("Your account has been deleted");
-        }*/
 
         // Check user status
         if (user.getUserStatus()== UserStatus.Undecided) {
-            throw new RuntimeException("Your account is not yet activated. Please wait for admin approval");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your account is not yet activated. Please wait for admin approval");
         }
 
         if (user.getUserStatus() == UserStatus.Blocked) {
-            throw new RuntimeException("Your account has been blocked. Please contact support");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your account is blocked. Please contact support");
         }
 
         if (user.getUserStatus() == UserStatus.Rejected) {
-            throw new RuntimeException("Your account has been rejected. Please contact support");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your account is rejected. Please contact support");
         }
 
 		String accessToken = jwtService.generateToken(user);
@@ -144,7 +142,7 @@ public class UserService {
 		token.setTokenName("accessToken");
 		token.setTokenType(TokenType.BEARER);
         token.setToken(jwtToken);
-        token.setExpiresAt(LocalDateTime.now().plusMinutes(15)); // Set expiration date for access token
+        token.setExpiresAt(LocalDateTime.now().plusHours(30)); // Set expiration date for access token
         token.setCreatedAt(LocalDateTime.now());
 		token.setExpired(false);
 		token.setRevoked(false);
@@ -157,7 +155,7 @@ public class UserService {
 		token.setTokenName("refreshToken");
 		token.setTokenType(TokenType.BEARER);
         token.setToken(jwtToken);
-        token.setExpiresAt(LocalDateTime.now().plusDays(30)); // Set expiration date for refresh token
+        token.setExpiresAt(LocalDateTime.now().plusDays(7)); // Set expiration date for refresh token
         token.setCreatedAt(LocalDateTime.now());
 		token.setExpired(false);
 		token.setRevoked(false);
@@ -220,48 +218,64 @@ public class UserService {
 	    // Check if passwords match
 	    if (!request.getPassword().equals(request.getConfirmPassword())) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Passwords do not match");
-	    }
+	    } 
 
-	    // Validate role-specific fields
-	    String role = request.getRole();
-	    if ("Medecin".equalsIgnoreCase(role)) {
-	        if (request.getCodeMedical() == null || request.getCodeMedical().isEmpty()) {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Code Médical is required for Médecin");
-	        }
-	    } else if (!"Patient".equalsIgnoreCase(role)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role specified. Role must be 'Patient' or 'Medecin'");
-	    }
+        // Validate role-specific fields
+        String role = request.getRole();
+        if ("Medecin".equalsIgnoreCase(role)) {
+            // Validate code format
+            if (request.getCodeMedical() == null || !request.getCodeMedical().matches("^TM-\\d{4}$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CodeMedical must be in format TM-1234");
+            }
 
-	    // Create the appropriate user type based on the role
-	    User user;
-	    if ("Medecin".equalsIgnoreCase(role)) {
-	        Medecin medecin = new Medecin();
-	        medecin.setCodeMedical(request.getCodeMedical());
-	        user = medecin; // Assign Medecin as a User
-	    } else {
-	        Patient patient = new Patient();
-	        user = patient; // Assign Patient as a User
-	    }
+            // Check uniqueness of codeMedical
+            Optional<Medecin> medecinOp = medecinRepository.findMedecinByCodeMedical(request.getCodeMedical());
+            if (medecinOp.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CodeMedical already in use");
+            }
 
-	    // Set common fields for all users
-	    user.setFirstName(request.getFirstName());
-	    user.setLastName(request.getLastName());
-	    user.setEmail(request.getEmail());
-	    user.setPassword(authService.hashPassword(request.getPassword()));
-	    user.setUserStatus(UserStatus.Undecided);
-	    user.setAccountStatus(AccountStatus.NotVerified);
-	    user.setRole("Medecin".equalsIgnoreCase(role) ? UserRole.Medecin : UserRole.Patient);
-	    user.setCreatedDate(LocalDateTime.now());
+        } else if (!"Patient".equalsIgnoreCase(role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role specified. Role must be 'Patient' or 'Medecin'");
+        }
+
+            // Create the appropriate user type based on the role
+        User user;
+        if ("Medecin".equalsIgnoreCase(role)) {
+            Medecin medecin = new Medecin();
+            medecin.setCodeMedical(request.getCodeMedical());
+            user = medecin; // Assign Medecin as a User
+        } else {
+            Patient patient = new Patient();
+
+            // Create and link dossier
+            DossierMedical dossier = new DossierMedical();
+            dossier.setDateCreated(LocalDateTime.now());
+            dossier.setPatient(patient); // Bi-directional link (if mapped)
+            patient.setDossierMedical(dossier); // Set to patient
+            user = patient;
+
+        }
+
+        // Set common fields for all users
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setEmail(request.getEmail());
+        user.setPassword(authService.hashPassword(request.getPassword()));
+        user.setUserStatus(UserStatus.Undecided);
+        user.setAccountStatus(AccountStatus.NotVerified);
+        user.setRole("Medecin".equalsIgnoreCase(role) ? UserRole.Medecin : UserRole.Patient);
+        user.setCreatedDate(LocalDateTime.now());
         user.setUpdatedDate(LocalDateTime.now());
         user.setImageUrl("/uploads/DefaultImage/Defaultimage.jpeg");
+        
 
-	    try {
-	        // Save the user to the database
-	        userRepo.save(user);
+        try {
+            // Save the user to the database
+            userRepo.save(user);
 
-	    } catch (DataAccessException e) {
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Database error: " + e.getMessage());
-	    }
+        } catch (DataAccessException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Database error: " + e.getMessage());
+        }
 
 		try {
 			authService.sendValidationEmail(user);
@@ -290,7 +304,14 @@ public class UserService {
                 medecin.getImageUrl(),
                 medecin.getAccountStatus().name(),
                 medecin.getCodeMedical(),
-                medecin.getPhoneNumber()
+                medecin.getPhoneNumber(),
+                medecin.getWorkPlace(),
+                medecin.getStartTime(),
+                medecin.getEndTime(),
+                medecin.getIsAvailable(),
+                medecin.getStartingPrice(),
+                medecin.isAutoManageAppointments(),
+                medecin.getDescription()
             );
 
         } else if (user instanceof Admin admin) {
@@ -308,13 +329,15 @@ public class UserService {
             // If the user is a Patient, return PatientResponse
             return new PatientResponse(
                 
-                patient.getFirstName(),
+               patient.getFirstName(),
                 patient.getLastName(),
                 patient.getEmail(),
                 patient.getAddress(),
                 patient.getImageUrl(),
                 patient.getAccountStatus().name(),
-                patient.getPhoneNumber()
+                patient.getPhoneNumber(),
+                patient.getDateNaissance(),
+                patient.getSexe() != null ? patient.getSexe().name() : null
             );
         }
         throw new RuntimeException("Unsupported user type: " + user.getClass().getSimpleName());
@@ -412,13 +435,21 @@ public class UserService {
 
         // Handle Medecin-specific updates
         if (user instanceof Medecin medecin && request instanceof UpdateMedecin medecinRequest) {
-            if (medecinRequest.getSpecialite() != null) medecin.setSpecialite(medecinRequest.getSpecialite());
             if (medecinRequest.getCodeMedical() != null) medecin.setCodeMedical(medecinRequest.getCodeMedical());
+            if (medecinRequest.getStartingPrice() != null) medecin.setStartingPrice(medecinRequest.getStartingPrice());
+            if (medecinRequest.getWorkPlace() != null) medecin.setWorkPlace(medecinRequest.getWorkPlace());
+            if (medecinRequest.getStartTime() != null) medecin.setStartTime(medecinRequest.getStartTime());
+            if (medecinRequest.getEndTime() != null) medecin.setEndTime(medecinRequest.getEndTime());
+            if (medecinRequest.getIsAvailable() != null) medecin.setIsAvailable(medecinRequest.getIsAvailable());
+            if (medecinRequest.getAutoManageAppointments() != null) medecin.setAutoManageAppointments(medecinRequest.getAutoManageAppointments());
+
+            if (medecinRequest.getDescription() != null) medecin.setDescription(medecinRequest.getDescription());
+
         }
 
         // Handle Patient-specific updates (if you have a subclass UpdatePatient)
         if (user instanceof Patient patient && request instanceof UpdatePatient patientRequest) {
-            if (patientRequest.getCIN() != null) patient.setCIN(patientRequest.getCIN());
+
             // Add patient-specific fields here if needed
         }
 
@@ -454,7 +485,7 @@ public class UserService {
         motif.setEventTime(LocalDate.now());
         motif.setReason(reason);
         motif.setTargetUser(user);
-        motif.setPerformedBy(user); // Assuming the user is performing the action
+        // Assuming the user is performing the action
         motif.setDescription(description);
         motifsRepo.save(motif);
         
@@ -467,40 +498,38 @@ public class UserService {
             .orElseThrow(() -> new RuntimeException("User not found"));
         return user.getRole().equals(UserRole.Patient); // Adjust based on your enum or string
     }
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 	public List<User> getAllUsers() {
 		return userRepo.findAll();
 	}
 
     //getAll Users except Admins
-	public List<User> getAllUsersWithSpecialite() {
-        return userRepo.findAllByRoleNot(UserRole.Admin);
+	public List<UserDTO> getAllUsersWithSpecialite() {
+        List<User> users = userRepo.findAllByRoleNot(UserRole.Admin);
+        return users.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
+    private UserDTO convertToDTO(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setId(user.getId());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setEmail(user.getEmail());
+        dto.setAddress(user.getAddress());
+        dto.setPhoneNumber(user.getPhoneNumber());
+        dto.setDateNaissance(user.getDateNaissance());
+        dto.setSexe(user.getSexe() != null ? user.getSexe().name() : null);
+        dto.setImageUrl(user.getImageUrl());
+        dto.setRole(user.getRole() != null ? user.getRole().name() : null);
+        dto.setCodeMedical(user instanceof Medecin ? ((Medecin) user).getCodeMedical() : null);
+        // Assuming specialite is a relationship; adjust if it's a simple field
+        dto.setSpecialite(user instanceof Medecin medecin && medecin.getSpecialite() != null ? medecin.getSpecialite() : null);
+        dto.setAccountStatus(user.getAccountStatus());
+        dto.setUserStatus(user.getUserStatus());
+        return dto;
+    }
 	@Transactional
     public String activateUser(Long userId) {
         Optional<User> userOptional = userRepo.findById(userId);
@@ -543,7 +572,7 @@ public class UserService {
             motif.setReason(reason);
             motif.setDescription(description);
             motif.setTargetUser(patient);
-            motif.setPerformedBy(medecin);
+            
             motifsRepo.save(motif);
 
         } else {
@@ -561,11 +590,10 @@ public class UserService {
             motif.setReason(reason);
             motif.setDescription(description);
             motif.setTargetUser(targetUser);
-            motif.setPerformedBy(performedBy);
+           
             motifsRepo.save(motif);
         }
     }
-
 
 	public String rejectUser(Long targetUserId, Long adminId, String reason, String description) {
         User user = userRepo.findById(targetUserId)
@@ -583,7 +611,7 @@ public class UserService {
         motif.setReason(reason);
         motif.setDescription(description);
         motif.setTargetUser(user);
-        motif.setPerformedBy(admin);
+       
         motifsRepo.save(motif);
     
         return "User rejected successfully";

@@ -63,8 +63,8 @@ public class UserController {
     @PutMapping("/me/update-data")
     public ResponseEntity<?> updateUserData(@RequestHeader("Authorization") String tokenHeader, @RequestBody UpdateUser request) {
         try {
-
             Long id = jwtService.extractIdFromBearer(tokenHeader);
+            
             // Call the service to update user data
             userService.updateUserData(id, request);
             var updated = getMe(tokenHeader).getBody();

@@ -8,6 +8,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -74,5 +75,14 @@ public class GlobalExceptionHandler {
       return ResponseEntity
         .status(HttpStatus.PAYLOAD_TOO_LARGE)
         .body("Fichier trop volumineux (max 5 MB).");
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Object> handleResponseStatusException(ResponseStatusException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR; // fallback
+        }
+        return buildErrorResponse(status, ex.getReason(), request.getRequestURI());
     }
 }

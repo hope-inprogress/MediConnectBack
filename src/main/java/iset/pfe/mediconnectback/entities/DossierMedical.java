@@ -30,19 +30,14 @@ public class DossierMedical {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medecin_id")
-    @JsonIgnore // Prevent serialization
-    private Medecin medecin;
-
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id")
-    @JsonIgnore // Already added in previous fixes
     private Patient patient;
     
     @Column(name = "created_at")
     private LocalDateTime dateCreated;
 
     @OneToMany(mappedBy = "dossierMedical", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore // Prevent serialization
     private List<DocumentMedical> fichiers;
 }

@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @Data
 public class AdminResponse {
     
+    
     private String firstName;
     private String lastName;
     private String email;

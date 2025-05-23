@@ -9,7 +9,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Data
@@ -33,12 +32,10 @@ public class RendezVous {
 
     @ManyToOne
     @JoinColumn(name = "patient_id", nullable = false)
-    @JsonIgnore
     private Patient patient;
 
     @ManyToOne
     @JoinColumn(name = "medecin_id", nullable = false)
-    @JsonIgnore
     private Medecin medecin;
 
     @Enumerated(EnumType.STRING)
@@ -65,6 +62,14 @@ public class RendezVous {
 
     private String errorMessage;    
 
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
 }
