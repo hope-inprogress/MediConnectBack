@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import iset.pfe.mediconnectback.dtos.DossierMedicalDTO;
 import iset.pfe.mediconnectback.entities.DossierMedical;
 import iset.pfe.mediconnectback.services.DossierMedicalService;
 import iset.pfe.mediconnectback.services.JwtService;
@@ -29,13 +30,9 @@ public class DossierMedicalController {
     // Get all dossiers for a specific patient
     @PreAuthorize("hasRole('MEDECIN')")
     @GetMapping
-    public ResponseEntity<List<DossierMedical>> getAllDossiersForMedecin(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<DossierMedicalDTO>> getAllDossiersForMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<DossierMedical> dossiers = dossierService.getDossiersForMedecin(medecinId);
+        List<DossierMedicalDTO> dossiers = dossierService.getDossiersForMedecin(medecinId);
         return ResponseEntity.ok(dossiers);
     }
-
-
-
-
 }

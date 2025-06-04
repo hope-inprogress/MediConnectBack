@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import iset.pfe.mediconnectback.dtos.MedecinDTO;
 import iset.pfe.mediconnectback.dtos.PatientDTO;
+import iset.pfe.mediconnectback.dtos.RendeVousDTO;
 import iset.pfe.mediconnectback.entities.RendezVous;
 import iset.pfe.mediconnectback.enums.UserStatus;
 import iset.pfe.mediconnectback.services.JwtService;
@@ -94,7 +96,7 @@ public class StatsController {
     @GetMapping("/patients/active")
     public ResponseEntity<Integer> getActivePatientsByMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<PatientDTO> patients = medecinService.getPatientsByMedecin(medecinId);
+        List<PatientDTO> patients = patientService.getPatientsByMedecin(medecinId);
         List<PatientDTO> activePatients = new ArrayList<>();
         for (PatientDTO patient : patients) {
             if (patient.getUserStatus() == UserStatus.Active) {
@@ -106,12 +108,11 @@ public class StatsController {
 
     }
 
-
     @PreAuthorize("hasRole('MEDECIN')")
     @GetMapping("/patients/blocked")
     public ResponseEntity<Integer> getBlockedPatientsByMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<PatientDTO> patients = medecinService.getPatientsByMedecin(medecinId);
+        List<PatientDTO> patients = patientService.getPatientsByMedecin(medecinId);
         List<PatientDTO> blockedPatients = new ArrayList<>();
         for (PatientDTO patient : patients) {
             if (patient.getUserStatus() == UserStatus.Blocked) {
@@ -123,23 +124,54 @@ public class StatsController {
 
     }
 
+    // get total patients for a specific medecin
     @PreAuthorize("hasRole('MEDECIN')")
     @GetMapping("/patients/total")
     public ResponseEntity<Integer> getTotalPatientsByMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<PatientDTO> patients = medecinService.getPatientsByMedecin(medecinId);
+        List<PatientDTO> patients = patientService.getPatientsByMedecin(medecinId);
         Integer size = patients.size();
         return ResponseEntity.ok(size);
 
     }
 
+    // get total appointments for a specific medecin
     @PreAuthorize("hasRole('MEDECIN')")
     @GetMapping("/appointements/total")
     public ResponseEntity<Integer> getTotalAppointmentsForMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<RendezVous> appointments = medecinService.getAppointmentsByMedecin(medecinId);
+        List<RendeVousDTO> appointments = medecinService.getAppointmentsByMedecin(medecinId);
         Integer size = appointments.size();
         return ResponseEntity.ok(size);
+    }
+
+    // get total appointments for a specific patient
+    @PreAuthorize("hasRole('PATIENT')")
+    @GetMapping("/count/mes-medecins")
+    public ResponseEntity<Long> countMesMedecin(@RequestHeader("Authorization") String token) {
+        Long userId = jwtService.extractIdFromBearer(token);
+        List<MedecinDTO> medecins = medecinService.getMedecinsByPatient(userId);
+        Long count = (long) medecins.size();
+        return ResponseEntity.ok(count);
+    }
+
+    // get total rendezVous for a specefic patient
+    @PreAuthorize("hasRole('PATIENT')")
+    @GetMapping("/count/rendezvous")
+    public ResponseEntity<Long> countMesRendezVous(@RequestHeader("Authorization") String token) {
+        Long userId = jwtService.extractIdFromBearer(token);
+        List<RendeVousDTO> rendezVous = patientService.getAppointmentsByPatient(userId);
+        Long count = (long) rendezVous.size();
+        return ResponseEntity.ok(count);
+    }
+
+    @PreAuthorize("hasRole('PATIENT')")
+    @GetMapping("/count/favorites")
+    public ResponseEntity<Long> countFavorites(@RequestHeader("Authorization") String token) {
+        Long patientId = jwtService.extractIdFromBearer(token);
+        List<MedecinDTO> medecins = patientService.getFavoriteMedecins(patientId);
+        Long count = (long) medecins.size();
+        return ResponseEntity.ok(count);
     }
    
 }

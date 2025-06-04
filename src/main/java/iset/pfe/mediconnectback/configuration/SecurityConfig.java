@@ -68,7 +68,8 @@ public class SecurityConfig implements WebMvcConfigurer{
         .cors(Customizer.withDefaults())
     			.csrf(customizer -> customizer.disable())
     			.authorizeHttpRequests(request -> 
-    			    request.requestMatchers("/auth/**", "/uploads/**").permitAll()
+    			    request.requestMatchers("/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/verify-otp", "/auth/resetPassword", "/uploads/**", "/chat/**", "/ws/**").permitAll()
+                    .requestMatchers("/auth/send-validation-email/**", "/auth/validate-email/**").hasAnyRole("MEDECIN", "PATIENT")
                     .requestMatchers("/admin/**", "/patient/**", "/medecin/**", "/users/**").hasAnyRole("ADMIN", "MEDECIN", "PATIENT")
                     .requestMatchers("/auth/logout/**").authenticated()
                     .anyRequest().authenticated())        
@@ -85,7 +86,6 @@ public class SecurityConfig implements WebMvcConfigurer{
         .exceptionHandling(customizer -> 
             customizer.accessDeniedHandler(accessDeniedHandler)
                       .authenticationEntryPoint(authenticationEntryPoint)
-
         )
         .build();
     }

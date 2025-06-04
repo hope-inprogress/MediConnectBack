@@ -18,5 +18,7 @@ public class MotifDto {
     private String reason;
     private String description;
     private Long targetUserId;
+    private String targetUsername;
+    private String targetUserImage;
 
 }

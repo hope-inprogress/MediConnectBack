@@ -11,6 +11,6 @@ import iset.pfe.mediconnectback.entities.Note;
 
 @Repository
 public interface NoteRepository extends JpaRepository<Note, Long> {
-    @Query("SELECT n FROM Note n WHERE n.medecin.id = :medecinId")
-    List<Note> findByMedecinId(@Param("medecinId") Long medecinId);
+    @Query("SELECT n FROM Note n WHERE n.user.id = :userId")
+    List<Note> findByUserId(@Param("userId") Long userId);
 }

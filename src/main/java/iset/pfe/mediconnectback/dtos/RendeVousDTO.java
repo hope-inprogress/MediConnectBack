@@ -21,6 +21,7 @@ public class RendeVousDTO {
      private LocalDateTime createdAt;
     private PatientResponse patient;
     private MedecinResponse medecin;
+    private Long appointementPrice;
     // Getters & Setters
 }
 

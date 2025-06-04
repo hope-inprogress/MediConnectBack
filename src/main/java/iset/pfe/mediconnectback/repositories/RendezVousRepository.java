@@ -3,6 +3,7 @@ package iset.pfe.mediconnectback.repositories;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,7 +18,9 @@ import iset.pfe.mediconnectback.enums.RendezVousStatut;
 
 @Repository
 public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
+
     List<RendezVous> findByMedecinId(Long medecinId);
+
     List<RendezVous> findByPatientId(Long patientId);
 
     long countByRendezVousStatut(RendezVousStatut rendezVousStatut);
@@ -30,7 +33,13 @@ public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
        "(rv.appointmentDate > CURRENT_DATE OR " +
        "(rv.appointmentDate = CURRENT_DATE AND rv.appointmentTime > CURRENT_TIME)) " +
        "ORDER BY rv.appointmentDate ASC, rv.appointmentTime ASC")
-    List<RendezVous> findUpcomingByMedecinId(@Param("medecinId") Long medecinId);
+    List<RendezVous> findUpComingByMedecinId(@Param("medecinId") Long medecinId);
+
+    @Query("SELECT rv FROM RendezVous rv WHERE rv.patient.id = :patientId AND " +
+       "(rv.appointmentDate > CURRENT_DATE OR " +
+       "(rv.appointmentDate = CURRENT_DATE AND rv.appointmentTime > CURRENT_TIME)) " +
+       "ORDER BY rv.appointmentDate ASC, rv.appointmentTime ASC")
+    List<RendezVous> findUpComingByPatientId(@Param("patientId") Long patientId);
     
     @Query("SELECT DISTINCT rv.patient FROM RendezVous rv " +
            "LEFT JOIN FETCH rv.patient.dossierMedical dm " +
@@ -48,7 +57,9 @@ public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
     List<RendezVous> findByMedecinAndRendezVousStatutIn(Medecin medecin, List<RendezVousStatut> rendezVousStatut);
 
     List<RendezVous> findByMedecinIdAndAppointmentDateAndRendezVousStatutIn(
-    Long medecinId, LocalDate date, List<RendezVousStatut> statusList);
+        Long medecinId, 
+        LocalDate appointmentDate, 
+        List<RendezVousStatut> statusList);
 
     long count();
 
@@ -56,6 +67,11 @@ public interface RendezVousRepository extends JpaRepository<RendezVous, Long> {
         "WHERE rv.medecin.id = :medecinId " +
         "ORDER BY rv.createdAt DESC")
     List<RendezVous> findTop5LatestRendezVousByMedecinId(@Param("medecinId") Long medecinId, Pageable pageable);
+
+    
+    Optional<RendezVous> findByAppointmentDateAndAppointmentTime(LocalDate localDate, LocalTime localTime);
+
+    boolean existsByMedecinIdAndAppointmentDate(Long medecinId, LocalDate appointmentDate);
 
 
 }

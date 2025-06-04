@@ -34,7 +34,11 @@ public class JwtService {
 	}
 
 	public Long extractIdFromBearer(String bearerToken) {
-		return extractId(bearerToken.replace("Bearer ", ""));
+		if (bearerToken == null || !bearerToken.startsWith("Bearer ")) {
+			throw new IllegalArgumentException("Invalid Bearer token format");
+		}
+		String token = bearerToken.substring(7);
+		return extractClaim(token, claims -> claims.get("id", Long.class));
 	}
 
 	//extract Id from Token

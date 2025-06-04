@@ -1,6 +1,5 @@
 package iset.pfe.mediconnectback.dtos;
 
-import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -29,5 +28,8 @@ public class FichierMedicalFormDTO {
     private Boolean alcoholUse;
     private String activityLevel; // e.g. Sedentary, Moderate, Active
     private String dietaryPreferences;
+
+    //constractor 
+    
 
 }

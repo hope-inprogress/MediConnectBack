@@ -2,6 +2,7 @@ package iset.pfe.mediconnectback.entities;
 
 import java.time.LocalDate;
 
+import iset.pfe.mediconnectback.dtos.UserDTO;
 import iset.pfe.mediconnectback.enums.EventType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -43,13 +44,12 @@ public class Motifs {
 
     // The user who is the subject of this motif (e.g., the one being blocked), get only the id of the user
 
-    @ManyToOne
-    @JoinColumn(name = "userId")
-    private User targetUser;
+    //@ManyToOne
+    //@JoinColumn(name = "userId")
+    private Long targetUserId;
 
-    // The user who performed the action (optional — could be null for automatic events)
-   // @ManyToOne
-    //@JoinColumn(name = "performed_by_user_id")
-    //private User performedBy;
+    private String targetUsername;
+
+    private String targetUserImage;
     
 }

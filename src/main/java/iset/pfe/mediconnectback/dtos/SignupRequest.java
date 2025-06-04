@@ -42,6 +42,8 @@ public class SignupRequest {
 )
     private String codeMedical;
 
+    @NotBlank(message = "Specialite is required")
+    private String specialitePrimaire;
 
 
     @NotBlank(message = "Role is required")

@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Lazy;
 
 import iset.pfe.mediconnectback.enums.RendezVousStatut;
 import iset.pfe.mediconnectback.repositories.RendezVousRepository;
@@ -21,6 +22,10 @@ public class AppointmentScheduler {
 
     @Autowired
     private RendezVousRepository appointmentRepository;
+
+    @Autowired
+    @Lazy
+    private MedecinService medecinService;
 
     private final Object lock = new Object();
 
@@ -106,6 +111,8 @@ public class AppointmentScheduler {
                 LocalDateTime appointmentDateTime = LocalDateTime.of(appt.getAppointmentDate(), appt.getAppointmentTime());
                 if (appointmentDateTime.isBefore(now.minusMinutes(30))) {
                     appt.setRendezVousStatut(RendezVousStatut.Completed);
+                    medecinService.addToPatient(appt.getPatient().getId(), appt.getMedecin().getId());
+
                     appt.setErrorMessage(null);
                     toUpdate.add(appt);
                 }

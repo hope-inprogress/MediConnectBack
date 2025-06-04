@@ -42,7 +42,15 @@ public class JwtFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String path = request.getRequestURI();
 
-        if (path.startsWith("/auth/") || path.startsWith("/uploads/")) {
+        // Only allow unauthenticated access to specific auth endpoints
+        if (path.equals("/auth/login") || 
+            path.equals("/auth/signup") || 
+            path.equals("/auth/forgot-password") ||
+            path.equals("/auth/verify-otp") ||
+            path.equals("/auth/resetPassword") ||
+            path.startsWith("/uploads/") || 
+            path.startsWith("/ws/") ||
+            path.startsWith("/chat/")) {
             filterChain.doFilter(request, response);
             return;
         }

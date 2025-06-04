@@ -46,17 +46,14 @@ public class DocumentMedical {
 
     @CreatedDate
     private LocalDateTime createdAt;
-
-    @Lob
-    @Column(name = "file_content", columnDefinition = "LONGBLOB")
-    private byte[] fileContent;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dossier_medical_id")
     @JsonIgnore
     private DossierMedical dossierMedical;
 
-    @ManyToOne
+    // don't get the uploader password
+    @ManyToOne(optional = true)
     @JoinColumn(name = "uploader_id", referencedColumnName = "id")
     private User uploader; //can be a medecin or a patient
 

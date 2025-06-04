@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import iset.pfe.mediconnectback.dtos.PatientDTO;
+import iset.pfe.mediconnectback.dtos.RendeVousDTO;
+import iset.pfe.mediconnectback.dtos.WorkDaysDTO;
 import iset.pfe.mediconnectback.entities.Medecin;
 import iset.pfe.mediconnectback.entities.Note;
 import iset.pfe.mediconnectback.entities.RendezVous;
@@ -27,6 +29,8 @@ import iset.pfe.mediconnectback.enums.UserRole;
 import iset.pfe.mediconnectback.repositories.MedecinRepository;
 import iset.pfe.mediconnectback.services.JwtService;
 import iset.pfe.mediconnectback.services.MedecinService;
+import iset.pfe.mediconnectback.services.NoteService;
+import iset.pfe.mediconnectback.services.PatientService;
 import iset.pfe.mediconnectback.services.UserService;
 
 
@@ -47,6 +51,12 @@ public class MedecinController {
     @Autowired
     private MedecinRepository medecinRepository;
 
+    @Autowired
+    private PatientService patientService;
+
+    @Autowired
+    private NoteService noteService;
+
     // Get all medecins (admin only)
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
@@ -59,7 +69,7 @@ public class MedecinController {
     @GetMapping("/me/patients")
     public ResponseEntity<List<PatientDTO>> getPatientsByMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<PatientDTO> patientDTOs = medecinService.getPatientsByMedecin(medecinId);
+        List<PatientDTO> patientDTOs = patientService.getPatientsByMedecin(medecinId);
         return ResponseEntity.ok(patientDTOs);
     }
 
@@ -75,17 +85,17 @@ public class MedecinController {
     // Get all appointments (RendezVous) for a specific medecin
     @PreAuthorize("hasRole('MEDECIN')")
     @GetMapping("/me/appointments")
-    public ResponseEntity<List<RendezVous>> getAppointmentsByMedecin(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<RendeVousDTO>> getAppointmentsByMedecin(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<RendezVous> appointments = medecinService.getAppointmentsByMedecin(medecinId);
+        List<RendeVousDTO> appointments = medecinService.getAppointmentsByMedecin(medecinId);
         return ResponseEntity.ok(appointments);
     }
 
     @PreAuthorize("hasRole('MEDECIN')")
     @GetMapping("/me/appointments/next")
-    public ResponseEntity<List<RendezVous>> getNextAppointments(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<RendeVousDTO>> getNextAppointments(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<RendezVous> nextAppointment = medecinService.getNextAppointmentsByMedecin(medecinId);
+        List<RendeVousDTO> nextAppointment = medecinService.getNextAppointmentsByMedecin(medecinId);
         return ResponseEntity.ok(nextAppointment);
     }
 
@@ -119,7 +129,7 @@ public class MedecinController {
     public ResponseEntity<String> addPrivateNote(@RequestHeader("Authorization") String token, @RequestBody Note note) {
         try {
             Long medecinId = jwtService.extractIdFromBearer(token);
-            medecinService.addPrivateNote(medecinId, note);
+            noteService.addPrivateNote(medecinId, note);
             return ResponseEntity.ok("Note added successfully");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
@@ -131,7 +141,7 @@ public class MedecinController {
     @GetMapping("me/notes")
     public ResponseEntity<List<Note>> getPrivateNotes(@RequestHeader("Authorization") String token) {
         Long medecinId = jwtService.extractIdFromBearer(token);
-        List<Note> notes = medecinService.getPrivateNotes(medecinId);
+        List<Note> notes = noteService.getPrivateNotes(medecinId);
         return ResponseEntity.ok(notes);
     }
 
@@ -144,7 +154,7 @@ public class MedecinController {
             @RequestBody Note updatedNote) {
         try {
             Long medecinId = jwtService.extractIdFromBearer(token);
-            medecinService.updateNote(noteId, medecinId, updatedNote); // Corrected param order
+            noteService.updateNote(noteId, medecinId, updatedNote); // Corrected param order
             return ResponseEntity.ok("Private note updated successfully");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Error: " + e.getMessage());
@@ -158,7 +168,7 @@ public class MedecinController {
         try {
             Long medecinId = jwtService.extractIdFromBearer(token);
             // Delete the note by its ID, ensuring that it belongs to the requesting medecin
-            medecinService.deletePrivateNote(medecinId, noteId);
+            noteService.deletePrivateNote(medecinId, noteId);
             return ResponseEntity.ok("Private note deleted successfully");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Error: " + e.getMessage());
@@ -196,5 +206,33 @@ public class MedecinController {
         return ResponseEntity.ok(medecin.isAutoManageAppointments());
     }
     
+    @PreAuthorize("hasRole('MEDECIN')")
+    @PostMapping("/patients/{patientId}/add")
+    public ResponseEntity<String> addPatientToMedecin(
+            @PathVariable Long patientId, 
+            @RequestHeader("Authorization") String token) {
+        try {
+            Long medecinId = jwtService.extractIdFromBearer(token);
+            medecinService.addToPatient(patientId, medecinId);
+            return ResponseEntity.ok("Patient added successfully to doctor's list");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasRole('MEDECIN')")
+    @DeleteMapping("/patients/{patientId}/remove")
+    public ResponseEntity<String> removePatientFromMedecin(
+            @PathVariable Long patientId,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Long medecinId = jwtService.extractIdFromBearer(token);
+            medecinService.removePatientFromMedecin(medecinId, patientId);
+            return ResponseEntity.ok("Patient removed successfully from doctor's list");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
 
 }

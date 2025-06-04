@@ -2,10 +2,7 @@ package iset.pfe.mediconnectback.dtos;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
 
-import iset.pfe.mediconnectback.entities.DocumentMedical;
 import iset.pfe.mediconnectback.enums.UserStatus;
 import lombok.Data;
 
@@ -24,5 +21,4 @@ public class PatientDTO {
     private Long blockedByMedecinId;
     private LocalDateTime rendezVousCreatedDate;
     private DossierMedicalDTO dossierMedical;
-
 }

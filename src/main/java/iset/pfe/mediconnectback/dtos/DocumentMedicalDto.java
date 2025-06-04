@@ -14,6 +14,7 @@ public class DocumentMedicalDto {
     private String fichier;
     private String type;
     private String visibility;
-    private Long uploaderId;
+    private String uploaderName;
+    private String uploaderImage;
     private LocalDateTime uploadDate;
 }

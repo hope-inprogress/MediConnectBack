@@ -10,7 +10,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import iset.pfe.mediconnectback.dtos.UserDTO;
-import iset.pfe.mediconnectback.entities.User;
 import iset.pfe.mediconnectback.services.JwtService;
 import iset.pfe.mediconnectback.services.UserService;
 

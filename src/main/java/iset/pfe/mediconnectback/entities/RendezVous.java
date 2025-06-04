@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import iset.pfe.mediconnectback.enums.RendezVousStatut;
+import iset.pfe.mediconnectback.enums.RendezVousType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -41,6 +42,9 @@ public class RendezVous {
     @Enumerated(EnumType.STRING)
     private RendezVousStatut  rendezVousStatut;
 
+    @Enumerated(EnumType.STRING)
+    private RendezVousType rendezVousType; // Pour suivre l'historique des statuts
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -65,11 +69,25 @@ public class RendezVous {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.rendezVousStatut = RendezVousStatut.Pending;
+        this.rescheduleCount = 0;
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+        if (this.rendezVousStatut == RendezVousStatut.Reschedule_Requested) {
+            this.rescheduleRequestTime = LocalDateTime.now();
+        }
+        if (this.rendezVousStatut == RendezVousStatut.Confirmed) {
+            this.completedAt = LocalDateTime.now();
+        }
+        if (this.rendezVousStatut == RendezVousStatut.Cancelled) {
+            this.cancelledAt = LocalDateTime.now();
+        }
+        if (this.rendezVousStatut == RendezVousStatut.Rescheduled) {
+            this.rescheduleCount++;
+        }
     }
 
 }

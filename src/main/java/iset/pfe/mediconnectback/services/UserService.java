@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -40,19 +41,24 @@ import iset.pfe.mediconnectback.dtos.UpdatePatient;
 import iset.pfe.mediconnectback.dtos.UpdateUser;
 import iset.pfe.mediconnectback.dtos.UserDTO;
 import iset.pfe.mediconnectback.entities.Admin;
+import iset.pfe.mediconnectback.entities.DocumentMedical;
 import iset.pfe.mediconnectback.entities.DossierMedical;
 import iset.pfe.mediconnectback.entities.Medecin;
+import iset.pfe.mediconnectback.entities.MedecinHoliday;
 import iset.pfe.mediconnectback.entities.Token;
 import iset.pfe.mediconnectback.entities.Motifs;
+import iset.pfe.mediconnectback.entities.OTP;
 import iset.pfe.mediconnectback.entities.Patient;
 import iset.pfe.mediconnectback.entities.User;
 import iset.pfe.mediconnectback.enums.AccountStatus;
 import iset.pfe.mediconnectback.enums.EventType;
+import iset.pfe.mediconnectback.enums.RendezVousType;
 import iset.pfe.mediconnectback.enums.Sexe;
+import iset.pfe.mediconnectback.enums.Specialite;
 import iset.pfe.mediconnectback.enums.TokenType;
 import iset.pfe.mediconnectback.enums.UserRole;
 import iset.pfe.mediconnectback.enums.UserStatus;
-import iset.pfe.mediconnectback.repositories.DossierMedicalRepository;
+import iset.pfe.mediconnectback.repositories.DocumentMedicalRepository;
 import iset.pfe.mediconnectback.repositories.MedecinRepository;
 import iset.pfe.mediconnectback.repositories.MotifsRepository;
 import iset.pfe.mediconnectback.repositories.PatientRepository;
@@ -77,6 +83,9 @@ public class UserService {
 
     @Autowired
     private PatientRepository patientRepository;
+
+    @Autowired
+    private DocumentMedicalRepository documentMedicalRepository;
 
 	@Autowired
 	private AuthenticationManager authManager;
@@ -130,6 +139,7 @@ public class UserService {
 		AuthResponse authResponse = new AuthResponse();
 		authResponse.setAccessToken(accessToken);
 		authResponse.setRefreshToken(refreshToken);
+        authResponse.setId(user.getId());
 		authResponse.setRole(user.getRole().name());
 		authResponse.setMessage("User authenticated successfully");
 
@@ -185,7 +195,7 @@ public class UserService {
         String email = jwtService.extractUserName(refreshToken);
 
         User user = userRepo.findUserByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (!jwtService.isTokenValid(refreshToken, user)) {
             throw new IllegalArgumentException("Invalid refresh token");
@@ -243,6 +253,9 @@ public class UserService {
         if ("Medecin".equalsIgnoreCase(role)) {
             Medecin medecin = new Medecin();
             medecin.setCodeMedical(request.getCodeMedical());
+            medecin.setSpecialitePrimaire(Specialite.valueOf(request.getSpecialitePrimaire().toUpperCase()));
+            medecin.setUserStatus(UserStatus.Undecided);
+
             user = medecin; // Assign Medecin as a User
         } else {
             Patient patient = new Patient();
@@ -252,6 +265,8 @@ public class UserService {
             dossier.setDateCreated(LocalDateTime.now());
             dossier.setPatient(patient); // Bi-directional link (if mapped)
             patient.setDossierMedical(dossier); // Set to patient
+            patient.setUserStatus(UserStatus.Active);
+
             user = patient;
 
         }
@@ -261,7 +276,6 @@ public class UserService {
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
         user.setPassword(authService.hashPassword(request.getPassword()));
-        user.setUserStatus(UserStatus.Undecided);
         user.setAccountStatus(AccountStatus.NotVerified);
         user.setRole("Medecin".equalsIgnoreCase(role) ? UserRole.Medecin : UserRole.Patient);
         user.setCreatedDate(LocalDateTime.now());
@@ -296,23 +310,31 @@ public class UserService {
 
         if (user instanceof Medecin medecin) {
             // If the user is a Medecin, return MedecinResponse
-            return new MedecinResponse(
-                medecin.getFirstName(),
-                medecin.getLastName(),
-                medecin.getEmail(),
-                medecin.getAddress(),
-                medecin.getImageUrl(),
-                medecin.getAccountStatus().name(),
-                medecin.getCodeMedical(),
-                medecin.getPhoneNumber(),
-                medecin.getWorkPlace(),
-                medecin.getStartTime(),
-                medecin.getEndTime(),
-                medecin.getIsAvailable(),
-                medecin.getStartingPrice(),
-                medecin.isAutoManageAppointments(),
-                medecin.getDescription()
-            );
+            MedecinResponse response = new MedecinResponse();
+            response.setFirstName(medecin.getFirstName());
+            response.setLastName(medecin.getLastName());
+            response.setSexe(medecin.getSexe() != null ? medecin.getSexe().name() : null);
+            response.setDateNaissance(medecin.getDateNaissance());
+            response.setEmail(medecin.getEmail());
+            response.setAddress(medecin.getAddress());
+            response.setImageUrl(medecin.getImageUrl());
+            response.setAccountStatus(medecin.getAccountStatus().name());
+            response.setCodeMedical(medecin.getCodeMedical());
+            response.setPhoneNumber(medecin.getPhoneNumber());
+            response.setWorkPlace(medecin.getWorkPlace());
+            response.setStartTime(medecin.getStartTime());
+            response.setEndTime(medecin.getEndTime());
+            response.setIsAvailable(medecin.getIsAvailable());
+            response.setSpecialitePrimaire(medecin.getSpecialitePrimaire());
+            response.setSpecialiteSecondaire(medecin.getSpecialiteSecondaire());
+            response.setTypeRendezVous(medecin.getRendezVousType() != null ? medecin.getRendezVousType().name() : null);
+            response.setPriceOnline(medecin.getPriceOnline());
+            response.setPriceInPerson(medecin.getPriceInPerson());
+            response.setAutoManageAppointments(medecin.isAutoManageAppointments());
+            response.setDescription(medecin.getDescription());
+            response.setWorkDays(medecin.getWorkingDays().stream().map(DayOfWeek::name).collect(Collectors.toSet()));
+            response.setHolidays(medecin.getHolidays().stream().map(h -> h.getDate().toString()).collect(Collectors.toSet()));
+            return response;
 
         } else if (user instanceof Admin admin) {
             // If the user is an Admin, return AdminResponse
@@ -391,23 +413,47 @@ public class UserService {
         return userRepo.save(user);
     }
 
+    @Transactional
+    public void deleteUserPhoto(Long id) {
+        User user = findById(id);
+
+        // Check if user has a photo
+        if (user.getImageUrl() == null || user.getImageUrl().isEmpty()) {
+            throw new RuntimeException("User does not have a profile photo to delete");
+        }
+
+        // Delete the photo file
+        String imageFileName = user.getImageUrl().replace("/uploads/", "");
+        Path photoPath = Paths.get(uploadDir, imageFileName);
+        try {
+            Files.deleteIfExists(photoPath);
+            System.out.println("Photo deleted: " + photoPath.toString());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete the photo: " + e.getMessage());
+        }
+
+        // Reset the user's image URL
+        user.setImageUrl("/uploads/DefaultImage/Defaultimage.jpeg");
+        userRepo.save(user);
+    }
+
 
     @Transactional
     public User changePassword(Long id, ChangerPassword request) {
 		User user = findById(id);
 
         if(!authService.verifyPassword(request.getOldPassword(), user.getPassword())) {
-            throw new RuntimeException("Old password is incorrect");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Old password is incorrect");
         }
         if (request.getNewPassword() == null || request.getNewPassword().isEmpty()) {
-            throw new RuntimeException("New password is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"New password is required");
         }
 
         if (request.getNewPassword().length() < 8) {
-            throw new RuntimeException("Password must be at least 8 characters long");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Password must be at least 8 characters long");
         }
         if (!request.getNewPassword().equals(request.getRepeatNewPassword())) {
-            throw new RuntimeException("New password and confirm password do not match");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"New password and confirm password do not match");
         }
 
         user.setPassword(authService.hashPassword(request.getNewPassword()));
@@ -431,24 +477,63 @@ public class UserService {
         if (request.getLastName() != null) user.setLastName(request.getLastName());
         if (request.getAddress() != null) user.setAddress(request.getAddress());
         if (request.getPhoneNumber() != null) user.setPhoneNumber(request.getPhoneNumber());
-        if (request.getDateNaissance() != null) user.setDateNaissance(request.getDateNaissance());
+        if (request.getDateNaissance() != null) user.setDateNaissance(request.getDateNaissance());                
+        if (request.getSexe() != null) user.setSexe(Sexe.valueOf(request.getSexe()));
+        if (request.getEmail() != null) {
+                        // Check if the user's current email is verified
+            if (user.getAccountStatus() == AccountStatus.Verified) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot change email because it is already verified");
+            }
+
+            // Check if email is already in use by another user
+            Optional<User> existingUser = userRepo.findUserByEmail(request.getEmail());
+            if (existingUser.isPresent() && !existingUser.get().getId().equals(user.getId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already in use");
+            }
+            // If email is not verified, allow the email change
+            user.setEmail(request.getEmail());
+        }
 
         // Handle Medecin-specific updates
         if (user instanceof Medecin medecin && request instanceof UpdateMedecin medecinRequest) {
             if (medecinRequest.getCodeMedical() != null) medecin.setCodeMedical(medecinRequest.getCodeMedical());
-            if (medecinRequest.getStartingPrice() != null) medecin.setStartingPrice(medecinRequest.getStartingPrice());
             if (medecinRequest.getWorkPlace() != null) medecin.setWorkPlace(medecinRequest.getWorkPlace());
             if (medecinRequest.getStartTime() != null) medecin.setStartTime(medecinRequest.getStartTime());
             if (medecinRequest.getEndTime() != null) medecin.setEndTime(medecinRequest.getEndTime());
             if (medecinRequest.getIsAvailable() != null) medecin.setIsAvailable(medecinRequest.getIsAvailable());
             if (medecinRequest.getAutoManageAppointments() != null) medecin.setAutoManageAppointments(medecinRequest.getAutoManageAppointments());
+            // update the specialitePrimaire un seul fois ;
+            if (medecin.getSpecialitePrimaire() == null) {
+                medecin.setSpecialitePrimaire(medecinRequest.getSpecialitePrimaire());
+            }
+            if (medecinRequest.getPriceInPerson() != null) {
+    medecin.setPriceInPerson(medecinRequest.getPriceInPerson());
+}
+            if(medecinRequest.getPriceOnline() !=  null && medecinRequest.getPriceOnline() != null) {
+                medecin.setPriceOnline(medecinRequest.getPriceOnline());
+            }
+            if(medecinRequest.getTypeRendezVous() != null) {
+                medecin.setRendezVousType(RendezVousType.valueOf(medecinRequest.getTypeRendezVous()));
+            }
 
+            if (medecinRequest.getSpecialiteSecondaire() != null) medecin.setSpecialiteSecondaire(medecinRequest.getSpecialiteSecondaire());
             if (medecinRequest.getDescription() != null) medecin.setDescription(medecinRequest.getDescription());
+            if (medecinRequest.getWorkingDays() != null) {
+                medecin.setWorkingDays(medecinRequest.getWorkingDays());
+            }
+            if (medecinRequest.getHolidays() != null) {
+    for (MedecinHoliday holiday : medecinRequest.getHolidays()) {
+        holiday.setMedecin(medecin); // set owning side
+        medecin.getHolidays().add(holiday);
+
+    }
+}
 
         }
 
         // Handle Patient-specific updates (if you have a subclass UpdatePatient)
         if (user instanceof Patient patient && request instanceof UpdatePatient patientRequest) {
+
 
             // Add patient-specific fields here if needed
         }
@@ -457,39 +542,34 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteMyAccount(Long myUserId, Map<String, String> request) {
-        User user = userRepo.findById(myUserId)
+    public void deleteMyAccount(Long userId, Map<String, String> request) {
+        User user = userRepo.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        //check if Password, repeatPassword and reason are not empty
+        // Validation
         if (request.get("password") == null || request.get("repeatPassword") == null || request.get("reason") == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password, repeat password and reason are required");
         }
 
-        //check if Password and repeatPassword are the same
         if (!request.get("password").equals(request.get("repeatPassword"))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password and repeat password do not match");
         }
 
-        //check if the Password is Correct
-        if (!authService.verifyPassword(request.get("password"), user.getPassword() )) {
+        if (!authService.verifyPassword(request.get("password"), user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Incorrect password");
         }
-
-        String reason = request.get("reason");
-        String description = request.get("description") != null ? request.get("description") : "No description provided";
 
         // Log the deletion reason
         Motifs motif = new Motifs();
         motif.setEventType(EventType.USER_DELETED_HIS_ACCOUNT);
         motif.setEventTime(LocalDate.now());
-        motif.setReason(reason);
-        motif.setTargetUser(user);
-        // Assuming the user is performing the action
-        motif.setDescription(description);
+        motif.setReason(request.get("reason"));
+        motif.setTargetUserId(user.getId());
+        motif.setTargetUsername(user.getFirstName() + " " + user.getLastName());
+        motif.setTargetUserImage(user.getImageUrl());
+        motif.setDescription(request.getOrDefault("description", "No description provided"));
         motifsRepo.save(motif);
-        
-        // Delete the user
+
         userRepo.delete(user);
     }
 
@@ -525,11 +605,12 @@ public class UserService {
         dto.setRole(user.getRole() != null ? user.getRole().name() : null);
         dto.setCodeMedical(user instanceof Medecin ? ((Medecin) user).getCodeMedical() : null);
         // Assuming specialite is a relationship; adjust if it's a simple field
-        dto.setSpecialite(user instanceof Medecin medecin && medecin.getSpecialite() != null ? medecin.getSpecialite() : null);
+        dto.setSpecialite(user instanceof Medecin medecin && medecin.getSpecialitePrimaire().name() != null ? medecin.getSpecialitePrimaire().name() : null);
         dto.setAccountStatus(user.getAccountStatus());
         dto.setUserStatus(user.getUserStatus());
         return dto;
     }
+
 	@Transactional
     public String activateUser(Long userId) {
         Optional<User> userOptional = userRepo.findById(userId);
@@ -571,7 +652,7 @@ public class UserService {
             motif.setEventTime(LocalDate.now());
             motif.setReason(reason);
             motif.setDescription(description);
-            motif.setTargetUser(patient);
+            motif.setTargetUserId(patient.getId());
             
             motifsRepo.save(motif);
 
@@ -589,7 +670,7 @@ public class UserService {
             motif.setEventTime(LocalDate.now());
             motif.setReason(reason);
             motif.setDescription(description);
-            motif.setTargetUser(targetUser);
+            motif.setTargetUserId(targetUser.getId());
            
             motifsRepo.save(motif);
         }
@@ -599,7 +680,7 @@ public class UserService {
         User user = userRepo.findById(targetUserId)
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        User admin = userRepo.findById(adminId)
+        userRepo.findById(adminId)
             .orElseThrow(() -> new RuntimeException("Admin not found"));
 
         user.setUserStatus(UserStatus.Rejected);
@@ -610,7 +691,7 @@ public class UserService {
         motif.setEventTime(LocalDate.now());
         motif.setReason(reason);
         motif.setDescription(description);
-        motif.setTargetUser(user);
+        motif.setTargetUserId(user.getId());
        
         motifsRepo.save(motif);
     
@@ -631,44 +712,6 @@ public class UserService {
 		user.setUserStatus(UserStatus.Active);
 		userRepo.save(user);
 	}
-
-    /*@Transactional
-    public void deleteUser(Long targetUserId, Long adminId, String reason, String description) {
-        User user = userRepo.findById(targetUserId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-    
-        User admin = userRepo.findById(adminId)
-            .orElseThrow(() -> new RuntimeException("Admin not found"));
-    
-        // Create the motif BEFORE modifying user
-        Motifs motif = new Motifs();
-        motif.setEventType(EventType.USER_DELETED_BY_ADMIN);
-        motif.setEventTime(LocalDate.now());
-        motif.setReason(reason);
-        motif.setDescription(description);
-        motif.setTargetUser(user);     // ✅ Managed entity
-        motif.setPerformedBy(admin);   // ✅ Managed entity
-    
-        motifsRepo.save(motif); // Save while both user/admin are still in DB
-    
-        // Clean up user associations
-        user.getTokens().clear();
-        if (user instanceof Patient patient) {
-            patient.getAppointments().clear();
-            patient.getDocumentsMedicaux().clear();
-            if (patient.getDossierMedical() != null) {
-                dossierMedicalRepo.delete(patient.getDossierMedical());
-            }
-        } else if (user instanceof Medecin medecin) {
-            medecin.getAppointments().clear();
-            medecin.getDocumentsMedicaux().clear();
-            if (medecin.getDossiersMedicaux() != null) {
-                medecin.getDossiersMedicaux().forEach(dossier -> dossier.setMedecin(null));
-            }
-        }
-    
-        userRepo.delete(user);
-    }*/
 
 	public Long countMedecins() {
         return userRepo.countByRole(UserRole.Medecin);
@@ -732,3 +775,4 @@ public class UserService {
 
 	
 }
+

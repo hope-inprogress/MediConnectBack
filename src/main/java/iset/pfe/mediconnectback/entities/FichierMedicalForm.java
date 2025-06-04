@@ -45,7 +45,7 @@ public class FichierMedicalForm {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    @ManyToOne
+    @OneToOne
     @JoinColumn(name = "dossier_id", nullable = false)
     private DossierMedical dossierMedical;
 

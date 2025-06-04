@@ -3,11 +3,11 @@ package iset.pfe.mediconnectback.controllers;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import iset.pfe.mediconnectback.dtos.AuthResponse;
@@ -26,7 +28,6 @@ import iset.pfe.mediconnectback.dtos.ResetPasswordBody;
 import iset.pfe.mediconnectback.dtos.SignupRequest;
 import iset.pfe.mediconnectback.entities.OTP;
 import iset.pfe.mediconnectback.entities.User;
-import iset.pfe.mediconnectback.services.AdminService;
 import iset.pfe.mediconnectback.services.AuthService;
 import iset.pfe.mediconnectback.services.EmailService;
 import iset.pfe.mediconnectback.services.JwtService;
@@ -104,45 +105,26 @@ public class AuthController {
 	}
 	
 	//send mail for email verification(forgot password)
-	@PostMapping("/forgot-password")
-	public ResponseEntity<String> verifyEmail(@RequestBody Map<String, String> request) {
-		String email = request.get("email");
-	    User user = userService.findByEmail(email)
-        .orElseThrow(() -> new UsernameNotFoundException("An account with this email does not exist!"));
-	    
-		String otp = authService.generateAndSendActivationToken(user); 
-		MailBody mailBody = new MailBody();
-		mailBody.setTo(email);
-		mailBody.setSubject("Forgot password request");
-		String url = "http://localhost:5173/reset-password?email=" + email + "&otp=" + otp;
-		mailBody.setText("Hello " + user.getFullName() + ",\n\n"
-		+ "Please confirm your email by clicking the link below:\n"
-				+ url + "\n\n"
-		+ "Your activation code is: " + otp);
-			
-		emailService.sendEmail(mailBody);
-    	return new ResponseEntity<>("EmailSent for verification!", HttpStatus.OK);
-	}
 	
-	@PostMapping("/forgot-password/resend")
+	@PostMapping("/forgot-password")
 	public ResponseEntity<String> resendEmail(@RequestBody Map<String, String> request) {
 		String email = request.get("email");
 		User user = userService.findByEmail(email)
 	            .orElseThrow(() -> new UsernameNotFoundException("An account with this email does not exist!"));
 		
-			authService.deletePreviousOTP(email, "RESET_PASSWORD");
-			String otp = authService.generateAndSendActivationToken(user); 
-			MailBody mailBody = new MailBody();
-			mailBody.setTo(email);
-			mailBody.setSubject("Forgot password request");
-			String url = "http://localhost:5173/reset-password?email=" + email + "&otp=" + otp;
-			mailBody.setText("Hello " + user.getFullName() + ",\n\n"
-		            + "Please confirm your email by clicking the link below:\n"
-		            + url + "\n\n"
-		            + "Your activation code is: " + otp);
-			
-			emailService.sendEmail(mailBody);
-			return new ResponseEntity<>("EmailSent for verification!", HttpStatus.OK);
+		authService.deletePreviousOTP(email, "RESET_PASSWORD");
+		String otp = authService.generateAndSendResetToken(user); 
+		MailBody mailBody = new MailBody();
+		mailBody.setTo(email);
+		mailBody.setSubject("Forgot password request");
+		String url = "http://localhost:5173/reset-password?email=" + email + "&otp=" + otp;
+		mailBody.setText("Hello " + user.getFullName() + ",\n\n"
+	            + "Please confirm your email by clicking the link below:\n"
+	            + url + "\n\n"
+	            + "Your activation code is: " + otp);
+		
+		emailService.sendEmail(mailBody);
+		return new ResponseEntity<>("EmailSent for verification!", HttpStatus.OK);
 		
 	}
 	
@@ -204,4 +186,52 @@ public class AuthController {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
 		}
 	}
+
+	// validate my email
+	@PreAuthorize("hasAnyRole('MEDECIN', 'PATIENT')")
+	@PostMapping("/validate-email")
+	public ResponseEntity<Map<String, String>> validateEmail(@RequestParam String otp, @RequestHeader("Authorization") String token) {
+		Long id = jwtService.extractIdFromBearer(token);
+		String email = userService.findById(id).getEmail();
+		Map<String, String> response = new HashMap<>();
+
+		try {
+			authService.activateAccount(otp, email);
+			response.put("message", "Email successfully validated.");
+			return ResponseEntity.ok(response);
+		} catch (RuntimeException e) {
+			response.put("message", e.getMessage());
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+		} catch (Exception e) {
+			response.put("message", "An unexpected error occurred.");
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+		}
+	}
+
+	//send validation email
+	@PreAuthorize("hasAnyRole('MEDECIN', 'PATIENT')")
+	@PostMapping("/send-validation-email")
+	public ResponseEntity<Map<String, String>> resendValidationEmail(@RequestHeader("Authorization") String token) {
+		Map<String, String> response = new HashMap<>();
+		
+		try {
+			Long id = jwtService.extractIdFromBearer(token);
+			User user = userService.findById(id);
+			
+			authService.deletePreviousOTP(user.getEmail(), "VALIDATION");
+			authService.sendValidationEmail(user);
+			response.put("message", "Verification email resent successfully.");
+			return ResponseEntity.status(HttpStatus.OK).body(response);
+		} catch (IllegalArgumentException e) {
+			response.put("message", "Invalid authorization header: " + e.getMessage());
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+		} catch (UsernameNotFoundException e) {
+			response.put("message", e.getMessage());
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+		} catch (Exception e) {
+			response.put("message", "Failed to send validation email: " + e.getMessage());
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+		}
+	}
+
 }

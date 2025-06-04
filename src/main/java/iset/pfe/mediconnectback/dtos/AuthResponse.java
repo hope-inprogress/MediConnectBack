@@ -13,6 +13,8 @@ public class AuthResponse {
   
   private String refreshToken;
 
+  private Long id;
+
   private String role;
 
   private String message;

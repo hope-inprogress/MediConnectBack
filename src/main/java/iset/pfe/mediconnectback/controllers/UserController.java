@@ -86,10 +86,26 @@ public class UserController {
         try {
             Long id = jwtService.extractIdFromBearer(tokenHeader);
 
-            User user = userService.updateUserPhoto(id, photo);
-            return ResponseEntity.ok(user);
+            userService.updateUserPhoto(id, photo);
+            var updated = getMe(tokenHeader).getBody();
+            return ResponseEntity.ok(updated);
         } catch (IOException e) {
             return ResponseEntity.badRequest().body("Erreur lors de la mise à jour du profil : " + e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("Erreur : " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur inattendue : " + e.getMessage());
+        }
+    }
+
+    // 🗑️ DELETE profile photo
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/me/delete-photo")
+    public ResponseEntity<?> deleteUserPhoto(@RequestHeader("Authorization") String tokenHeader) {
+        try {
+            Long id = jwtService.extractIdFromBearer(tokenHeader);
+            userService.deleteUserPhoto(id);
+            return ResponseEntity.ok("Your profile photo has been successfully deleted.");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body("Erreur : " + e.getMessage());
         } catch (Exception e) {
@@ -99,13 +115,13 @@ public class UserController {
    
     // 🗑️ DELETE account
     @PreAuthorize("isAuthenticated()")
-    @DeleteMapping("/me")
-    public ResponseEntity<Void> deleteMe(@RequestHeader("Authorization") String tokenHeader, @RequestBody Map<String, String> request) {
+    @DeleteMapping("/me/delete")
+    public ResponseEntity<?> deleteMe(@RequestHeader("Authorization") String tokenHeader, @RequestBody Map<String, String> request) {
         
         Long id = jwtService.extractIdFromBearer(tokenHeader);
 
         userService.deleteMyAccount(id, request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok("Your account has been successfully deleted.");
     }
 
 }

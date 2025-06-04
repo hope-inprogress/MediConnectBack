@@ -30,7 +30,7 @@ public class MotifsService {
             motifDto.setEventTime(motif.getEventTime());
             motifDto.setReason(motif.getReason());
             motifDto.setDescription(motif.getDescription());
-            motifDto.setTargetUserId(motif.getTargetUser().getId());
+            motifDto.setTargetUserId(motif.getTargetUserId());
             //motifDto.setPerformedById(motif.getPerformedBy().getId());
             return motifDto;
         }).toList();

@@ -10,6 +10,8 @@ public class DossierMedicalDTO {
     
   private Long id;
     private LocalDateTime dateCreated;
+    private String patientName;
+    private String patientImage;
     private List<DocumentMedicalDto> fichiers;
 }
 

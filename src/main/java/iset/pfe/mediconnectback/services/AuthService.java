@@ -48,7 +48,7 @@ public class AuthService {
 	@Autowired
 	private EmailService emailService;
 	
-	private final String  confirmationUrl = "http://localhost:5173/auth/account-verifivation";
+	private final String  confirmationUrl = "http://localhost:5173/account-verifivation";
 	
 	public void deleteFp(Long id) {
 		tokenRepo.deleteById(id);
@@ -109,24 +109,57 @@ public class AuthService {
 		return response;
 	}
 
+	@Transactional
 	public void sendValidationEmail(User user) {
-		String newToken = generateAndSendActivationToken(user);
+		// Ensure the user is in a managed state
+		User managedUser = userRepo.findById(user.getId())
+				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+				
+		String newToken = generateAndSendValidationToken(managedUser);
 		
 		// Prepare the email details
 	    MailBody mailBody = new MailBody();
-	    mailBody.setTo(user.getEmail());  // Set the recipient's email address
+	    mailBody.setTo(managedUser.getEmail());  // Set the recipient's email address
 	    mailBody.setSubject("Please Confirm Your Email Address");
-	    mailBody.setText("Hello " + user.getFullName() + ",\n\n"
+		String url = confirmationUrl + "?token=" + newToken;
+	    mailBody.setText("Hello " + managedUser.getFullName() + ",\n\n"
 	            + "Please confirm your email by clicking the link below:\n"
-	            + confirmationUrl + "\n\n"
+	            + url + "\n\n"
 	            + "Your activation code is: " + newToken);
 	    
 		emailService.sendEmail(mailBody);	
-		
 	}
 
-	public String generateAndSendActivationToken(User user) {
-		String generatedOTP = generateActivationCode(6);
+	@Transactional
+	public String generateAndSendValidationToken(User user) {
+		// Ensure the user is in a managed state
+		User managedUser = userRepo.findById(user.getId())
+				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+				
+		String generatedOTP;
+
+		do {
+			generatedOTP = generateActivationCode(6);
+		} while (otpRepo.findByOtp(generatedOTP).isPresent());
+		
+		OTP otp = new OTP();
+		otp.setOtp(generatedOTP);
+		otp.setName("VALIDATION");  // Changed from RESET_PASSWORD to VALIDATION
+		otp.setCreatedAt(LocalDateTime.now());
+		otp.setExpiresAt(LocalDateTime.now().plusMinutes(15));
+		otp.setUser(managedUser);  // Use the managed user entity
+		
+		otpRepo.save(otp);
+		return generatedOTP;
+	}
+
+	public String generateAndSendResetToken(User user) {
+		String generatedOTP;
+
+		do {
+			generatedOTP = generateActivationCode(6);
+		} while (otpRepo.findByOtp(generatedOTP).isPresent());
+		
 		OTP otp = new OTP();
 		otp.setOtp(generatedOTP);
 		otp.setName("RESET_PASSWORD");
@@ -164,19 +197,35 @@ public class AuthService {
 	}
 	
 	
-	public void activateAccount(String token) throws MessagingException{
-		OTP savedToken = otpRepo.findByOtp(token)
-				.orElseThrow(() -> new RuntimeException("Invalid token"));
+	@Transactional
+	public void activateAccount(String otp, String email) throws MessagingException {
+		// First find the OTP
+		OTP savedToken = otpRepo.findByOtp(otp)
+				.orElseThrow(() -> new RuntimeException("Invalid otp for email validation, check your email again!"));
+		
+		// Check if token is already validated
+		if(savedToken.getValidatedAt() != null) {
+			throw new RuntimeException("Token already validated");
+		}
+		
+		// Check if token is expired
 		if(LocalDateTime.now().isAfter(savedToken.getExpiresAt())) {
 			sendValidationEmail(savedToken.getUser());
 			throw new RuntimeException("Activation Expired. A new token has been sent to the same email address!");
 		}
 		
-		var user = userRepo.findById(savedToken.getUser().getId())
-				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+		// Get the user from the token instead of querying by email
+		User user = savedToken.getUser();
+		if (user == null) {
+			throw new RuntimeException("User not found for this token");
+		}
+		
+		// Update user status
 		user.setAccountStatus(AccountStatus.Verified);
 		user.setUpdatedDate(LocalDateTime.now());
 		userRepo.save(user);
+		
+		// Update token
 		savedToken.setValidatedAt(LocalDateTime.now());
 		otpRepo.save(savedToken);
 	}
@@ -186,5 +235,4 @@ public class AuthService {
 		otpRepo.deleteByUserEmailAndName(email, name);
 	}
 
-	
 }

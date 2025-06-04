@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import iset.pfe.mediconnectback.enums.AccountStatus;
+import iset.pfe.mediconnectback.enums.Availibility;
 import iset.pfe.mediconnectback.enums.Sexe;
 import iset.pfe.mediconnectback.enums.UserRole;
 import iset.pfe.mediconnectback.enums.UserStatus;
@@ -25,7 +26,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -61,6 +61,8 @@ public class User implements UserDetails, Principal{
 	private String password;
 
 	private Integer phoneNumber;
+
+    private Availibility availibily;
 	
 	private LocalDate dateNaissance;
 	

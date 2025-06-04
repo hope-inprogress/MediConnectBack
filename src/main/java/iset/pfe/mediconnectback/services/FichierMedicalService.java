@@ -1,13 +1,18 @@
 package iset.pfe.mediconnectback.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.mock.web.MockMultipartFile;
 
 import iset.pfe.mediconnectback.dtos.FichierMedicalFormDTO;
 import iset.pfe.mediconnectback.entities.DocumentMedical;
 import iset.pfe.mediconnectback.entities.DossierMedical;
 import iset.pfe.mediconnectback.entities.FichierMedicalForm;
 import iset.pfe.mediconnectback.entities.Patient;
+import iset.pfe.mediconnectback.enums.DocumentVisibility;
 import iset.pfe.mediconnectback.repositories.DocumentMedicalRepository;
 import iset.pfe.mediconnectback.repositories.DossierMedicalRepository;
 import iset.pfe.mediconnectback.repositories.FichierMedicalFormRepository;
@@ -16,6 +21,9 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDateTime;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @Service
 public class FichierMedicalService {
@@ -35,10 +43,14 @@ public class FichierMedicalService {
     @Autowired
     private PatientRepository patientRepository;
 
+    @Autowired
+    private FileStorageService fileStorageService;
+
     public FichierMedicalForm getFichierMedicalFormByPatientId(Long patientId) {
         return fichierMedicalFormRepository.findByPatientId(patientId)
-            .orElseThrow(() -> new EntityNotFoundException("Fichier medical form not found for patient ID: " + patientId));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fichier médical introuvable"));
     }
+
     
     @Transactional
     public void fillAndGenerateMedicalForm(Long patientId, FichierMedicalFormDTO dto) {
@@ -72,20 +84,43 @@ public class FichierMedicalService {
         // Generate PDF
         byte[] pdfBytes = pdfGeneratorService.generateMedicalFormPdf(form);
 
-        // Save as DocumentMedical
-        DocumentMedical doc = dossier.getFichiers().stream()
-            .filter(d -> d.getFichier().equals("MedicalForm.pdf"))
-            .findFirst()
-            .orElse(new DocumentMedical());
+        // Save PDF to filesystem
+        String fileName = "MedicalForm_" + patientId + ".pdf";
+        MultipartFile multipartFile = new MockMultipartFile(
+            fileName,
+            fileName,
+            "application/pdf",
+            pdfBytes
+        );
 
-        doc.setFichier("MedicalForm.pdf");
-        doc.setFileContent(pdfBytes);
-        doc.setType("application/pdf");
-        doc.setDossierMedical(dossier);
-        doc.setUploader(patient);
-        doc.setCreatedAt(LocalDateTime.now());
+        // Find and delete previous document if exists
+        DocumentMedical existingDoc = documentMedicalRepository.findByDossierMedical_Patient_IdAndFichier(patientId, fileName)
+            .orElse(null);
+        
+        if (existingDoc != null) {
+            try {
+                // Delete the file from filesystem
+                Files.deleteIfExists(Paths.get(existingDoc.getFichier().substring(1))); // Remove leading slash
+                // Delete from database
+                documentMedicalRepository.delete(existingDoc);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to delete old PDF file", e);
+            }
+        }
 
-        documentMedicalRepository.save(doc);
+        // Store new PDF
+        String storedPath = fileStorageService.storeFile(multipartFile);
+
+        // Create new document
+        DocumentMedical newDoc = new DocumentMedical();
+        newDoc.setFichier(storedPath);
+        newDoc.setType("application/pdf");
+        newDoc.setDossierMedical(dossier);
+        newDoc.setUploader(patient);
+        newDoc.setCreatedAt(LocalDateTime.now());
+        newDoc.setVisibility(DocumentVisibility.PUBLIC);
+
+        documentMedicalRepository.save(newDoc);
     }
 
     

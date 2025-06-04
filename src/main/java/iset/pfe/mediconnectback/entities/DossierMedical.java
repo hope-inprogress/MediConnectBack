@@ -18,11 +18,13 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(exclude = "patient")
 @Data
 public class DossierMedical {
     
@@ -40,4 +42,8 @@ public class DossierMedical {
     @OneToMany(mappedBy = "dossierMedical", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore // Prevent serialization
     private List<DocumentMedical> fichiers;
+
+    @OneToOne(mappedBy = "dossierMedical", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private FichierMedicalForm medicalForm;
 }

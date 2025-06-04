@@ -2,6 +2,7 @@ package iset.pfe.mediconnectback.entities;
 
 import java.time.LocalDateTime;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -22,6 +23,7 @@ public class OTP {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	
+	@Column(unique = true)
 	private String otp;
 	
 	private LocalDateTime createdAt;
@@ -29,11 +31,8 @@ public class OTP {
 	private LocalDateTime validatedAt;
 	private String name;
 	
-	
-	
 	@ManyToOne
 	@JoinColumn(name = "userId", nullable = false)
 	private User user;
-	
 }
 
